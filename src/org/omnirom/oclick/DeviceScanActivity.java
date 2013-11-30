@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-package org.omnirom.ble;
+package org.omnirom.oclick;
 
 import java.util.ArrayList;
+
+import org.omnirom.oclick.R;
 
 import android.app.Activity;
 import android.app.ListActivity;

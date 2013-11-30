@@ -15,12 +15,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-	package="org.omnirom.ble"
+	package="org.omnirom.oclick"
 	android:versionCode="1"
 	android:versionName="1.0" >
 	<uses-sdk
-		android:minSdkVersion="18"
-		android:targetSdkVersion="18" />
+		android:minSdkVersion="19"
+		android:targetSdkVersion="19" />
 	<!--
     Declare this required feature if you want to make the app available to BLE-capable
     devices only.  If you want to make your app available to devices that don't support BLE,
@@ -37,16 +37,16 @@ limitations under the License.
 		android:label="@string/app_name"
 		android:theme="@android:style/Theme.Holo.Light" >
 		<activity
-			android:name=".DeviceScanActivity"
+			android:name="org.omnirom.oclick.DeviceScanActivity"
 			android:label="@string/app_name" >
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
 				<category android:name="android.intent.category.LAUNCHER" />
 			</intent-filter>
 		</activity>
-		<activity android:name=".DeviceControlActivity" />
+		<activity android:name="org.omnirom.oclick.DeviceControlActivity" />
 		<service
-			android:name=".BluetoothLeService"
+			android:name="org.omnirom.oclick.BluetoothLeService"
 			android:enabled="true" />
 	</application>
 </manifest>

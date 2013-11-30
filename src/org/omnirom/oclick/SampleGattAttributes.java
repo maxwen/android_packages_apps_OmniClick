@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.omnirom.ble;
+package org.omnirom.oclick;
 
 import java.util.HashMap;
 
