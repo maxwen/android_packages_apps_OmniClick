@@ -126,14 +126,18 @@ public class BluetoothLeService extends Service {
             int flag = characteristic.getProperties();
             if ((flag & 0x01) != 0) {
                 format = BluetoothGattCharacteristic.FORMAT_UINT16;
-                Log.d(TAG, "Heart rate format UINT16.");
             } else {
                 format = BluetoothGattCharacteristic.FORMAT_UINT8;
-                Log.d(TAG, "Heart rate format UINT8.");
             }
-            final int clickValue = characteristic.getIntValue(format, 0);
-            Log.d(TAG, String.format("Received click: %d", clickValue));
-            intent.putExtra(EXTRA_DATA, String.valueOf(clickValue));
+            int value = characteristic.getIntValue(format, 0);
+            int clickNum = 0;
+            if (value == 1){
+                clickNum = 1;
+            } else if (value == 32){
+                clickNum = 2;
+            }
+            Log.d(TAG, String.format("Received click: %d", clickNum));
+            intent.putExtra(EXTRA_DATA, String.valueOf(clickNum) + " click");
         } else {
             // For all other profiles, writes the data formatted in HEX.
             final byte[] data = characteristic.getValue();

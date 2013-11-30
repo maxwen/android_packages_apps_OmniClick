@@ -23,6 +23,7 @@ import java.util.HashMap;
  */
 public class SampleGattAttributes {
     private static HashMap<String, String> attributes = new HashMap();
+    public static String FIND_ME = "00001802-0000-1000-8000-00805f9b34fb";
     public static String FIND_ME_ALERT_LEVEL = "00002a06-0000-1000-8000-00805f9b34fb";
     public static String TX_POWER_LEVEL = "00002a07-0000-1000-8000-00805f9b34fb";
     public static String OPPO_OTOUCH_CLICK = "f000ffe1-0451-4000-b000-000000000000";
@@ -30,7 +31,7 @@ public class SampleGattAttributes {
 
     static {
         // find me Services.
-        attributes.put("00001802-0000-1000-8000-00805f9b34fb", "Immediate Alert");
+        attributes.put(FIND_ME, "Find me");
         attributes.put(FIND_ME_ALERT_LEVEL, "Alert level");
 
         attributes.put("00001800-0000-1000-8000-00805f9b34fb", "Generic Access");
