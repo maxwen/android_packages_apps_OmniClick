@@ -33,4 +33,8 @@
 	<string name="menu_disconnect">Disconnect</string>
 	<string name="menu_scan">Scan</string>
 	<string name="menu_stop">Stop</string>
+	<string name="start_on_boot_title">Start on boot</string>
+	<string name="proximity_alert_title">Proximity alert</string>
+	<string name="find_phone_alert_title">Double click to find phone</string>
+	<string name="snap_picture_title">Single click to take picture</string>
 </resources>

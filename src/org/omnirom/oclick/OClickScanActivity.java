@@ -1,24 +1,23 @@
 /*
- * Copyright (C) 2013 The Android Open Source Project
+ *  Copyright (C) 2014 The OmniROM Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
-
 package org.omnirom.oclick;
 
 import java.util.ArrayList;
-
-import org.omnirom.oclick.R;
 
 import android.app.Activity;
 import android.app.ListActivity;
@@ -27,9 +26,11 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.preference.PreferenceManager;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -43,13 +44,12 @@ import android.widget.Toast;
 /**
  * Activity for scanning and displaying available Bluetooth LE devices.
  */
-public class DeviceScanActivity extends ListActivity {
+public class OClickScanActivity extends ListActivity {
     private LeDeviceListAdapter mLeDeviceListAdapter;
-    private BluetoothAdapter mBluetoothAdapter;
     private boolean mScanning;
     private Handler mHandler;
+    private BluetoothAdapter mBluetoothAdapter;
 
-    private static final int REQUEST_ENABLE_BT = 1;
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
 
@@ -58,31 +58,17 @@ public class DeviceScanActivity extends ListActivity {
         super.onCreate(savedInstanceState);
         getActionBar().setTitle(R.string.title_devices);
         mHandler = new Handler();
-
-        // Use this check to determine whether BLE is supported on the device.  Then you can
-        // selectively disable BLE-related features.
-        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
-            Toast.makeText(this, R.string.ble_not_supported, Toast.LENGTH_SHORT).show();
-            finish();
-        }
-
+        
         // Initializes a Bluetooth adapter.  For API level 18 and above, get a reference to
         // BluetoothAdapter through BluetoothManager.
         final BluetoothManager bluetoothManager =
                 (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
-
-        // Checks if Bluetooth is supported on the device.
-        if (mBluetoothAdapter == null) {
-            Toast.makeText(this, R.string.error_bluetooth_not_supported, Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main, menu);
+        getMenuInflater().inflate(R.menu.scan_menu, menu);
         if (!mScanning) {
             menu.findItem(R.id.menu_stop).setVisible(false);
             menu.findItem(R.id.menu_scan).setVisible(true);
@@ -114,29 +100,10 @@ public class DeviceScanActivity extends ListActivity {
     protected void onResume() {
         super.onResume();
 
-        // Ensures Bluetooth is enabled on the device.  If Bluetooth is not currently enabled,
-        // fire an intent to display a dialog asking the user to grant permission to enable it.
-        if (!mBluetoothAdapter.isEnabled()) {
-            if (!mBluetoothAdapter.isEnabled()) {
-                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-            }
-        }
-
         // Initializes list view adapter.
         mLeDeviceListAdapter = new LeDeviceListAdapter();
         setListAdapter(mLeDeviceListAdapter);
         scanLeDevice(true);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        // User chose not to enable Bluetooth.
-        if (requestCode == REQUEST_ENABLE_BT && resultCode == Activity.RESULT_CANCELED) {
-            finish();
-            return;
-        }
-        super.onActivityResult(requestCode, resultCode, data);
     }
 
     @Override
@@ -150,14 +117,31 @@ public class DeviceScanActivity extends ListActivity {
     protected void onListItemClick(ListView l, View v, int position, long id) {
         final BluetoothDevice device = mLeDeviceListAdapter.getDevice(position);
         if (device == null) return;
-        final Intent intent = new Intent(this, DeviceControlActivity.class);
-        intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_NAME, device.getName());
-        intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
         if (mScanning) {
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
             mScanning = false;
         }
-        startActivity(intent);
+        
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        prefs.edit().putString(OClickControlActivity.OCLICK_CONNECT_DEVICE, device.getAddress()).commit();
+        prefs.edit().putString(OClickControlActivity.OCLICK_CONNECT_NAME, device.getName()).commit();
+
+        if(!OClickBLEService.mIsRunning){
+            Intent connectingIntent = new Intent(OClickControlActivity.CONNECTING_ACTION);
+            this.sendBroadcast(connectingIntent);
+
+            Intent startIntent = new Intent(this, OClickBLEService.class);
+    		this.startService(startIntent);
+    	} else if(!OClickBLEService.mConnected){
+            Intent connectingIntent = new Intent(OClickControlActivity.CONNECTING_ACTION);
+            this.sendBroadcast(connectingIntent);
+
+    	    Intent connectIntent = new Intent(OClickBLEService.ACTION_CONNECT);
+    		connectIntent.putExtra(OClickControlActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
+    		connectIntent.putExtra(OClickControlActivity.EXTRAS_DEVICE_NAME, device.getName());
+    		this.sendBroadcast(connectIntent);
+    	}
+        finish();
     }
 
     private void scanLeDevice(final boolean enable) {
@@ -189,7 +173,7 @@ public class DeviceScanActivity extends ListActivity {
         public LeDeviceListAdapter() {
             super();
             mLeDevices = new ArrayList<BluetoothDevice>();
-            mInflator = DeviceScanActivity.this.getLayoutInflater();
+            mInflator = OClickScanActivity.this.getLayoutInflater();
         }
 
         public void addDevice(BluetoothDevice device) {
@@ -226,7 +210,7 @@ public class DeviceScanActivity extends ListActivity {
             ViewHolder viewHolder;
             // General ListView optimization code.
             if (view == null) {
-                view = mInflator.inflate(R.layout.listitem_device, null);
+                view = mInflator.inflate(R.layout.device_item, null);
                 viewHolder = new ViewHolder();
                 viewHolder.deviceAddress = (TextView) view.findViewById(R.id.device_address);
                 viewHolder.deviceName = (TextView) view.findViewById(R.id.device_name);
@@ -256,8 +240,8 @@ public class DeviceScanActivity extends ListActivity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    mLeDeviceListAdapter.addDevice(device);
-                    mLeDeviceListAdapter.notifyDataSetChanged();
+                   mLeDeviceListAdapter.addDevice(device);
+                   mLeDeviceListAdapter.notifyDataSetChanged();
                 }
             });
         }
