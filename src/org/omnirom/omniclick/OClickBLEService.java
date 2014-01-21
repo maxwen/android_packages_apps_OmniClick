@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package org.omnirom.oclick;
+package org.omnirom.omniclick;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -62,7 +62,6 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     private BluetoothAdapter mBluetoothAdapter;
     private String mBluetoothDeviceAddress;
     private BluetoothGatt mBluetoothGatt;
-    private int mConnectionState = STATE_DISCONNECTED;
     private Handler mRssiPoll = new Handler();
     private Handler mHandler;
     boolean mAlerting;
@@ -70,18 +69,13 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     
     public static boolean mIsRunning;
     public static boolean mConnected;
-
     private OCLickReceiver mReceiver = new OCLickReceiver();
 
-    private static final int STATE_DISCONNECTED = 0;
-    private static final int STATE_CONNECTING = 1;
-    private static final int STATE_CONNECTED = 2;
-
-    public final static String ACTION_GATT_CONNECTED = "org.omnirom.oclick.ACTION_GATT_CONNECTED";
-    public final static String ACTION_GATT_DISCONNECTED = "org.omnirom.oclick.ACTION_GATT_DISCONNECTED";
-    public static final String ACTION_CANCEL_ALERT_PHONE = "org.omnirom.oclick.ACTION_CANCEL_ALERT_PHONE";
-    public static final String ACTION_CONNECT = "org.omnirom.oclick.ACTION_CONNECT";
-    public static final String ACTION_DISCONNECT = "org.omnirom.oclick.ACTION_DISCONNECT";
+    public final static String ACTION_GATT_CONNECTED = "org.omnirom.omniclick.ACTION_GATT_CONNECTED";
+    public final static String ACTION_GATT_DISCONNECTED = "org.omnirom.omniclick.ACTION_GATT_DISCONNECTED";
+    public static final String ACTION_CANCEL_ALERT_PHONE = "org.omnirom.omniclick.ACTION_CANCEL_ALERT_PHONE";
+    public static final String ACTION_CONNECT = "org.omnirom.omniclick.ACTION_CONNECT";
+    public static final String ACTION_DISCONNECT = "org.omnirom.omniclick.ACTION_DISCONNECT";
 
     private final String LIST_UUID = "UUID";
     
@@ -115,14 +109,12 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
             String intentAction;
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 intentAction = ACTION_GATT_CONNECTED;
-                mConnectionState = STATE_CONNECTED;
                 Log.i(TAG, "Connected to GATT server.");
                 mConnected = true; 
                 broadcastUpdate(intentAction);
                 mBluetoothGatt.discoverServices();
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 intentAction = ACTION_GATT_DISCONNECTED;
-                mConnectionState = STATE_DISCONNECTED;
                 mConnected = false;
                 broadcastUpdate(intentAction);
                 mRssiPoll.removeCallbacksAndMessages(null);
@@ -381,7 +373,6 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
                 && mBluetoothGatt != null) {
             Log.d(TAG, "Trying to use an existing mBluetoothGatt for connection.");
             if (mBluetoothGatt.connect()) {
-                mConnectionState = STATE_CONNECTING;
                 return true;
             } else {
                 return false;
@@ -396,7 +387,6 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         mBluetoothGatt = device.connectGatt(this, true, mGattCallback);
         Log.d(TAG, "Trying to create a new connection.");
         mBluetoothDeviceAddress = address;
-        mConnectionState = STATE_CONNECTING;
         return true;
     }
 

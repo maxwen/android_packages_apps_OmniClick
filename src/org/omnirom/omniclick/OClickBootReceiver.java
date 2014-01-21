@@ -14,7 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- */package org.omnirom.oclick;
+ */package org.omnirom.omniclick;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;

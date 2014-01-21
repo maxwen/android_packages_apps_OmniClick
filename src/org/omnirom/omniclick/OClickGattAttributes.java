@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package org.omnirom.oclick;
+package org.omnirom.omniclick;
 
 import java.util.UUID;
 

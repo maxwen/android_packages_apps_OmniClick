@@ -15,9 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package org.omnirom.oclick;
-
-import org.omnirom.oclick.OClickBLEService.OCLickReceiver;
+package org.omnirom.omniclick;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
@@ -37,6 +35,7 @@ import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.util.Log;
 
 public class OClickControlActivity extends Activity {
     private final static String TAG = OClickControlActivity.class.getSimpleName();
@@ -52,7 +51,7 @@ public class OClickControlActivity extends Activity {
     public static final String OCLICK_FIND_PHONE_ALERT_KEY = "find_phone_alert";
     public static final String OCLICK_SNAP_PICTURE_KEY = "snap_picture";
 
-    public static final String CONNECTING_ACTION = "org.omnirom.oclick.connecting_oclick";
+    public static final String CONNECTING_ACTION = "org.omnirom.omniclick.connecting_oclick";
 
     private static final int REQUEST_ENABLE_BT = 1;
     
@@ -87,6 +86,7 @@ public class OClickControlActivity extends Activity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.oclick_main);
         
@@ -209,6 +209,8 @@ public class OClickControlActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+
+        Log.d(TAG, "onResume");
 
         // Ensures Bluetooth is enabled on the device.  If Bluetooth is not currently enabled,
         // fire an intent to display a dialog asking the user to grant permission to enable it.

@@ -15,7 +15,7 @@
      limitations under the License.
 -->
 <resources>
-	<string name="app_name">OClick</string>
+	<string name="app_name">OmniClick</string>
 	<string name="ble_not_supported">BLE is not supported</string>
 	<string name="label_data">Data:</string>
 	<string name="label_device_address">Device address:</string>

@@ -16,7 +16,7 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-	package="org.omnirom.oclick"
+	package="org.omnirom.omniclick"
 	android:versionCode="1"
 	android:versionName="1.0" >
 	<uses-sdk
@@ -39,18 +39,18 @@
 		android:icon="@drawable/ic_launcher"
 		android:label="@string/app_name" >
 		<activity
-			android:name="org.omnirom.oclick.OClickControlActivity"
+			android:name="org.omnirom.omniclick.OClickControlActivity"
 			android:label="@string/app_name" >
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
 				<category android:name="android.intent.category.LAUNCHER" />
 			</intent-filter>
 		</activity>
-		<activity android:name="org.omnirom.oclick.OClickScanActivity" />
+		<activity android:name="org.omnirom.omniclick.OClickScanActivity" />
 		<service
-			android:name="org.omnirom.oclick.OClickBLEService"
+			android:name="org.omnirom.omniclick.OClickBLEService"
 			android:enabled="true" />
-		<receiver android:name="org.omnirom.oclick.OClickBootReceiver" >
+		<receiver android:name="org.omnirom.omniclick.OClickBootReceiver" >
 			<intent-filter>
 				<action android:name="android.intent.action.BOOT_COMPLETED" />
 			</intent-filter>
