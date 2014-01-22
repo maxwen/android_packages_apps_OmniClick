@@ -74,16 +74,18 @@ public class OClickControlActivity extends Activity {
     private boolean mConnected = false;
     private boolean mConnecting;
     private BluetoothAdapter mBluetoothAdapter;
-    private OCLickReceiver mReceiver = new OCLickReceiver();
+    private OCLickReceiver mReceiver;
     private SharedPreferences mPrefs;
 	private boolean mRingtoneSelect;
 	private Handler mHandler;
+	private boolean mStartScan;
+	private BroadcastReceiver mGattUpdateReceiver;
 
 
     // Handles various events fired by the Service.
     // ACTION_GATT_CONNECTED: connected to a GATT server.
     // ACTION_GATT_DISCONNECTED: disconnected from a GATT server.
-    private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
+    private class GattBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
@@ -126,14 +128,8 @@ public class OClickControlActivity extends Activity {
             finish();
             return;
         }
+        mStartScan = true;
 
-        // Ensures Bluetooth is enabled on the device.  If Bluetooth is not currently enabled,
-        // fire an intent to display a dialog asking the user to grant permission to enable it.
-        if (!mBluetoothAdapter.isEnabled()) {
-        	Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-        	startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-        }
-        
         mConnectionState = (TextView) findViewById(R.id.connection_state);
         mDeviceAddressField = (TextView) findViewById(R.id.device_address);
 
@@ -186,32 +182,6 @@ public class OClickControlActivity extends Activity {
                     boolean isChecked) {
             	mPrefs.edit().putBoolean(OClickControlActivity.OCLICK_SNAP_PICTURE_KEY, buttonView.isChecked()).commit();
             }});
-        
-
-        initConnectionState();
-        mHandler.post(mRingtoneLookupRunnable);
-
-        registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
-
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(CONNECTING_ACTION);
-        registerReceiver(mReceiver, filter);
-
-        if(mDeviceAddress == null){
-            final Intent intent = new Intent(this, OClickScanActivity.class);
-            startActivity(intent);
-        } else {
-        	if(!OClickBLEService.mIsRunning){
-        	    setConnecting(true);
-        		Intent startIntent = new Intent(this, OClickBLEService.class);
-        		this.startService(startIntent);
-        	} else if(!OClickBLEService.mConnected){
-                setConnecting(true);
-        		Intent connectIntent = new Intent(OClickBLEService.ACTION_CONNECT);
-        		connectIntent.putExtra(EXTRAS_DEVICE_ADDRESS, mDeviceAddress);
-        		this.sendBroadcast(connectIntent); 
-        	}
-        }
     }
 
     private void initConnectionState(){
@@ -248,19 +218,66 @@ public class OClickControlActivity extends Activity {
     protected void onResume() {
         super.onResume();
         Log.d(TAG, "onResume");
+        
+        // Ensures Bluetooth is enabled on the device.  If Bluetooth is not currently enabled,
+        // fire an intent to display a dialog asking the user to grant permission to enable it.
+        if (!mBluetoothAdapter.isEnabled()) {
+        	mStartScan = false;
+        	Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+        	startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+        }
+
+        init();
+    }
+    
+    private void init(){
+    	if (mBluetoothAdapter.isEnabled()) {
+    		initConnectionState();
+    		mHandler.post(mRingtoneLookupRunnable);
+
+    		mGattUpdateReceiver = new GattBroadcastReceiver();
+    		registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
+
+    		mReceiver = new OCLickReceiver();
+    		IntentFilter filter = new IntentFilter();
+    		filter.addAction(CONNECTING_ACTION);
+    		registerReceiver(mReceiver, filter);
+
+    		if(mDeviceAddress == null){
+    			if(mStartScan){
+    				final Intent intent = new Intent(this, OClickScanActivity.class);
+    				startActivity(intent);
+    			}
+    		} else {
+    			if(!OClickBLEService.mIsRunning){
+    				setConnecting(true);
+    				Intent startIntent = new Intent(this, OClickBLEService.class);
+    				this.startService(startIntent);
+    			} else if(!OClickBLEService.mConnected){
+    				setConnecting(true);
+    				Intent connectIntent = new Intent(OClickBLEService.ACTION_CONNECT);
+    				connectIntent.putExtra(EXTRAS_DEVICE_ADDRESS, mDeviceAddress);
+    				this.sendBroadcast(connectIntent); 
+    			}
+    		}
+    	}
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         Log.d(TAG, "onPause");
+        if(mGattUpdateReceiver != null){
+        	unregisterReceiver(mGattUpdateReceiver);
+        }
+        if(mReceiver != null){
+        	unregisterReceiver(mReceiver);
+        }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(mGattUpdateReceiver);
-        unregisterReceiver(mReceiver);
     }
 
     @Override
@@ -315,9 +332,11 @@ public class OClickControlActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         // User chose not to enable Bluetooth.
-        if (requestCode == REQUEST_ENABLE_BT && resultCode == Activity.RESULT_CANCELED) {
-            finish();
-            return;
+        if (requestCode == REQUEST_ENABLE_BT){
+        	if(resultCode == Activity.RESULT_CANCELED) {
+        		finish();
+        		return;
+        	}
         }
         if (requestCode == REQUEST_SELECT_RINGTONE){
         	if (resultCode != Activity.RESULT_CANCELED && data != null) {
