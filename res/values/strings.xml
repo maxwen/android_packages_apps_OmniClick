@@ -39,4 +39,5 @@
 	<string name="find_phone_alert_ringtone_title">Ringtone</string>
 	<string name="find_phone_alert_notification_title">Phone locator alert</string>
 	<string name="find_phone_alert_notification_text">Tap to dismiss</string>
+	<string name="music_control_title">Music control</string>
 </resources>

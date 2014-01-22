@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import android.app.ActivityManagerNative;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -40,13 +41,16 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.hardware.input.InputManager;
+import android.media.IAudioService;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.RemoteException;
 import android.os.SystemClock;
+import android.os.ServiceManager;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.InputDevice;
@@ -63,7 +67,6 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     private String mBluetoothDeviceAddress;
     private BluetoothGatt mBluetoothGatt;
     private Handler mRssiPoll;
-    private Handler mHandler;
     boolean mAlerting;
     private Ringtone mRingtone;
     private SharedPreferences mPrefs;
@@ -158,40 +161,47 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
                 Log.d(TAG, String.format("Received click: %d", clickNum));
             }
             boolean findPhoneAlert = mPrefs.getBoolean(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_KEY, true);
+            boolean musicControl= mPrefs.getBoolean(OClickControlActivity.OCLICK_MUSIC_CONTROL_KEY, false);
+            boolean snapPicture = mPrefs.getBoolean(OClickControlActivity.OCLICK_SNAP_PICTURE_KEY, true);
 
-            if (clickNum == 2 && findPhoneAlert) {
-                NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (clickNum == 2){
+                if(findPhoneAlert) {
+                    NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-                if (mRingtone.isPlaying()) {
-                    Log.d(TAG, "Stopping ring alarm");
-                    mRingtone.stop();
-                    notificationManager.cancel(0);
-                    return;
+                    if (mRingtone.isPlaying()) {
+                        Log.d(TAG, "Stopping ring alarm");
+                        mRingtone.stop();
+                        notificationManager.cancel(0);
+                        return;
+                    }
+
+                    Log.d(TAG, "Executing ring alarm");
+
+                    mRingtone.play();
+                    Notification.Builder builder = new Notification.Builder(OClickBLEService.this);
+                    builder.setSmallIcon(R.drawable.locator_icon);
+                    builder.setContentTitle(getResources().getString(R.string.find_phone_alert_notification_title));
+                    builder.setContentText(getResources().getString(R.string.find_phone_alert_notification_text));
+                    builder.setAutoCancel(true);
+                    builder.setOngoing(true);
+
+                    PendingIntent resultPendingIntent = PendingIntent.getBroadcast(getBaseContext(), 0, new Intent(ACTION_CANCEL_ALERT_PHONE), 0);
+                    builder.setContentIntent(resultPendingIntent);
+                    notificationManager.notify(0, builder.build());
+                } else if(musicControl){
+                    Log.d(TAG, "start/stop music");
+                    dispatchMediaKeyWithWakeLockToAudioService(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
                 }
-
-                Log.d(TAG, "Executing ring alarm");
-
-                mRingtone.play();
-                Notification.Builder builder = new Notification.Builder(OClickBLEService.this);
-                builder.setSmallIcon(R.drawable.locator_icon);
-                builder.setContentTitle(getResources().getString(R.string.find_phone_alert_notification_title));
-                builder.setContentText(getResources().getString(R.string.find_phone_alert_notification_text));
-                builder.setAutoCancel(true);
-                builder.setOngoing(true);
-
-                PendingIntent resultPendingIntent = PendingIntent.getBroadcast(getBaseContext(), 0, new Intent(ACTION_CANCEL_ALERT_PHONE), 0);
-                builder.setContentIntent(resultPendingIntent);
-                notificationManager.notify(0, builder.build());
-            } else {
-                boolean snapPicture = mPrefs.getBoolean(OClickControlActivity.OCLICK_SNAP_PICTURE_KEY, true);
-                if(clickNum == 1 && snapPicture){
-                    Log.d(TAG, "Setting single tap runnable");
-                    mHandler.post(mInjectKeyDownRunnable);
-                    mHandler.postDelayed(mInjectKeyUpRunnable,10); // introduce small delay to handle key press
-                } 
-                if(clickNum == 2){
-                    Log.d(TAG, "Setting double tap runnable");
-                } 
+            }
+            if(clickNum == 1){
+                if(snapPicture){
+                    Log.d(TAG, "snap picture");
+                    triggerVirtualKeypress(KeyEvent.KEYCODE_CAMERA);
+                }
+                if(musicControl){
+                    Log.d(TAG, "next track");
+                    dispatchMediaKeyWithWakeLockToAudioService(KeyEvent.KEYCODE_MEDIA_NEXT);
+                }
             }
         }
 
@@ -298,7 +308,6 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         mPrefs = PreferenceManager.getDefaultSharedPreferences(this);
         mPrefs.registerOnSharedPreferenceChangeListener(this);
 
-        mHandler = new Handler();
         mRssiPoll = new Handler();
 
         IntentFilter filter = new IntentFilter();
@@ -496,25 +505,44 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         }
     }
     
-    final Runnable mInjectKeyDownRunnable = new Runnable() {
-        public void run() {
-            final KeyEvent ev = new KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
-                    KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CAMERA, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
-                    KeyEvent.FLAG_FROM_SYSTEM | KeyEvent.FLAG_VIRTUAL_HARD_KEY,
-                    InputDevice.SOURCE_KEYBOARD);
-            InputManager.getInstance().injectInputEvent(ev, InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
-        }
-    };
+    private void triggerVirtualKeypress(final int keyCode) {
+        InputManager im = InputManager.getInstance();
+        long now = SystemClock.uptimeMillis();
 
-    final Runnable mInjectKeyUpRunnable = new Runnable() {
-        public void run() {
-            final KeyEvent ev = new KeyEvent(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
-                    KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CAMERA, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
-                    KeyEvent.FLAG_FROM_SYSTEM | KeyEvent.FLAG_VIRTUAL_HARD_KEY,
-                    InputDevice.SOURCE_KEYBOARD);
-            InputManager.getInstance().injectInputEvent(ev, InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
+        final KeyEvent downEvent = new KeyEvent(now, now, KeyEvent.ACTION_DOWN,
+                keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
+                KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
+        final KeyEvent upEvent = KeyEvent.changeAction(downEvent, KeyEvent.ACTION_UP);
+
+        im.injectInputEvent(downEvent, InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
+        im.injectInputEvent(upEvent, InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
+    }
+    
+    private IAudioService getAudioService() {
+        IAudioService audioService = IAudioService.Stub.asInterface(
+                ServiceManager.checkService(Context.AUDIO_SERVICE));
+        if (audioService == null) {
+            Log.w(TAG, "Unable to find IAudioService interface.");
         }
-    };
+        return audioService;
+    }
+
+    private void dispatchMediaKeyWithWakeLockToAudioService(int keycode) {
+       if (ActivityManagerNative.isSystemReady()) {
+            IAudioService audioService = getAudioService();
+            if (audioService != null) {
+                try {
+                    KeyEvent event = new KeyEvent(SystemClock.uptimeMillis(),
+                            SystemClock.uptimeMillis(), KeyEvent.ACTION_DOWN, keycode, 0);
+                    audioService.dispatchMediaKeyEventUnderWakelock(event);
+                    event = KeyEvent.changeAction(event, KeyEvent.ACTION_UP);
+                    audioService.dispatchMediaKeyEventUnderWakelock(event);
+                } catch (RemoteException e) {
+                    Log.e(TAG, "dispatchMediaKeyEvent threw exception " + e);
+                }
+            }
+        }
+    }
     
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,

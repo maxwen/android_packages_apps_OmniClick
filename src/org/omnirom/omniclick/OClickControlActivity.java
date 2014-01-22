@@ -60,6 +60,7 @@ public class OClickControlActivity extends Activity {
     public static final String OCLICK_FIND_PHONE_ALERT_KEY = "find_phone_alert";
     public static final String OCLICK_FIND_PHONE_ALERT_TONE_KEY = "find_phone_alert_tone";
     public static final String OCLICK_SNAP_PICTURE_KEY = "snap_picture";
+    public static final String OCLICK_MUSIC_CONTROL_KEY = "music_control";
 
     public static final String CONNECTING_ACTION = "org.omnirom.omniclick.connecting_oclick";
 
@@ -68,6 +69,7 @@ public class OClickControlActivity extends Activity {
     
     private TextView mConnectionState;
     private TextView mFindPhoneAlertTone;
+    private TextView mFindPhoneAlertToneTitle;
     private TextView mDeviceAddressField;
     private String mDeviceName;
     private String mDeviceAddress;
@@ -79,6 +81,10 @@ public class OClickControlActivity extends Activity {
 	private boolean mRingtoneSelect;
 	private Handler mHandler;
 	private BroadcastReceiver mGattUpdateReceiver;
+    private CheckBox mFindPhoneAlert;
+    private TextView mFindPhoneAlertTitle;
+    private CheckBox mMusicControl;
+    private TextView mMusicControlTitle;
 
 
     // Handles various events fired by the Service.
@@ -153,17 +159,26 @@ public class OClickControlActivity extends Activity {
             	mPrefs.edit().putBoolean(OClickControlActivity.OCLICK_PROXIMITY_ALERT_KEY, isChecked).commit();
             }});
 
-        CheckBox findPhoneAlert = (CheckBox) findViewById(R.id.find_phone_alert);
-        findPhoneAlert.setChecked(mPrefs.getBoolean(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_KEY, true));
-        findPhoneAlert.setOnCheckedChangeListener(new OnCheckedChangeListener(){
+        mFindPhoneAlertTitle = (TextView) findViewById(R.id.find_phone_alert_title);
+
+        mFindPhoneAlert = (CheckBox) findViewById(R.id.find_phone_alert);
+        mFindPhoneAlert.setChecked(mPrefs.getBoolean(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_KEY, true));
+        mFindPhoneAlert.setOnCheckedChangeListener(new OnCheckedChangeListener(){
             @Override
             public void onCheckedChanged(CompoundButton buttonView,
                     boolean isChecked) {
             	mPrefs.edit().putBoolean(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_KEY, isChecked).commit();
-            	mFindPhoneAlertTone.setEnabled(buttonView.isChecked());
+            	mFindPhoneAlertTone.setEnabled(isChecked);
+            	mFindPhoneAlertToneTitle.setEnabled(isChecked);
+            	mMusicControl.setEnabled(!isChecked);
+                mMusicControlTitle.setEnabled(!isChecked);
             }});
 
+        mFindPhoneAlertToneTitle = (TextView) findViewById(R.id.find_phone_alert_ringtone_title);
         mFindPhoneAlertTone = (TextView) findViewById(R.id.find_phone_alert_ringtone);
+        mFindPhoneAlertTone.setEnabled(mFindPhoneAlert.isChecked());
+        mFindPhoneAlertToneTitle.setEnabled(mFindPhoneAlert.isChecked());
+
         mFindPhoneAlertTone.setOnTouchListener(new OnTouchListener(){
 			@Override
 			public boolean onTouch(View v, MotionEvent event) {
@@ -180,6 +195,22 @@ public class OClickControlActivity extends Activity {
             public void onCheckedChanged(CompoundButton buttonView,
                     boolean isChecked) {
             	mPrefs.edit().putBoolean(OClickControlActivity.OCLICK_SNAP_PICTURE_KEY, isChecked).commit();
+            }});
+
+        mMusicControlTitle = (TextView) findViewById(R.id.music_control_title);
+        mMusicControl = (CheckBox) findViewById(R.id.music_control);
+        mMusicControl.setChecked(mPrefs.getBoolean(OClickControlActivity.OCLICK_MUSIC_CONTROL_KEY, false));
+        mMusicControl.setEnabled(!mFindPhoneAlert.isChecked());
+        mMusicControlTitle.setEnabled(!mFindPhoneAlert.isChecked());
+        mFindPhoneAlert.setEnabled(!mMusicControl.isChecked());
+        mFindPhoneAlertTitle.setEnabled(!mMusicControl.isChecked());
+        mMusicControl.setOnCheckedChangeListener(new OnCheckedChangeListener(){
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView,
+                    boolean isChecked) {
+                mPrefs.edit().putBoolean(OClickControlActivity.OCLICK_MUSIC_CONTROL_KEY, isChecked).commit();
+                mFindPhoneAlert.setEnabled(!isChecked);
+                mFindPhoneAlertTitle.setEnabled(!isChecked);
             }});
 
         mGattUpdateReceiver = new GattBroadcastReceiver();
