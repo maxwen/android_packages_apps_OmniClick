@@ -129,6 +129,27 @@
 			android:layout_height="wrap_content"
 			android:layout_alignParentLeft="true"
 			android:layout_alignParentTop="true"
+			android:text="@string/find_phone_alert_ringtone_title"
+			android:textSize="18sp" />
+	    <TextView
+			android:id="@+id/find_phone_alert_ringtone"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_alignParentRight="true"
+			android:layout_alignParentTop="true"
+			android:background="@android:color/transparent"
+			android:textSize="18sp" />
+	</RelativeLayout>
+	<RelativeLayout
+		android:layout_width="fill_parent"
+		android:layout_height="wrap_content"
+		android:layout_margin="10dp"
+		android:orientation="horizontal" >
+		<TextView
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_alignParentLeft="true"
+			android:layout_alignParentTop="true"
 			android:text="@string/snap_picture_title"
 			android:textSize="18sp" />
 		<CheckBox

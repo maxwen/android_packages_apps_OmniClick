@@ -119,7 +119,7 @@ public class OClickScanActivity extends ListActivity {
             mScanning = false;
         }
         
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         prefs.edit().putString(OClickControlActivity.OCLICK_CONNECT_DEVICE, device.getAddress()).commit();
         prefs.edit().putString(OClickControlActivity.OCLICK_CONNECT_NAME, device.getName()).commit();
 

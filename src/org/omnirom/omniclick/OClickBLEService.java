@@ -62,10 +62,11 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     private BluetoothAdapter mBluetoothAdapter;
     private String mBluetoothDeviceAddress;
     private BluetoothGatt mBluetoothGatt;
-    private Handler mRssiPoll = new Handler();
+    private Handler mRssiPoll;
     private Handler mHandler;
     boolean mAlerting;
     private Ringtone mRingtone;
+    private SharedPreferences mPrefs;
     
     public static boolean mIsRunning;
     public static boolean mConnected;
@@ -132,13 +133,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 displayGattServices(getSupportedGattServices());
                 
-                // Register trigger notification (Used for camera/alarm)
-                BluetoothGattService service = gatt.getService(OClickGattAttributes.OPPO_OTOUCH_UUID);
-                BluetoothGattCharacteristic trigger = service.getCharacteristic(OClickGattAttributes.OPPO_OTOUCH_CLICK1_UUID);
-                if (trigger == null) {
-                    trigger = service.getCharacteristic(OClickGattAttributes.OPPO_OTOUCH_CLICK2_UUID);
-                }
-                gatt.setCharacteristicNotification(trigger, true);
+                registerOClickButton(gatt);
 
                 toggleRssiListener();
             } else {
@@ -156,26 +151,12 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
             Log.d(TAG, "Characteristic changed " + characteristic.getUuid());
 
             int clickNum = 0;
-            final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(OClickBLEService.this);
-
             if (OClickGattAttributes.OPPO_OTOUCH_CLICK1_UUID.equals(characteristic.getUuid()) ||
                     OClickGattAttributes.OPPO_OTOUCH_CLICK2_UUID.equals(characteristic.getUuid())) {
-                int format = -1;
-                int flag = characteristic.getProperties();
-                if ((flag & 0x01) != 0) {
-                    format = BluetoothGattCharacteristic.FORMAT_UINT16;
-                } else {
-                    format = BluetoothGattCharacteristic.FORMAT_UINT8;
-                }
-                int value = characteristic.getIntValue(format, 0);
-                if (value == 1){
-                    clickNum = 1;
-                } else if (value == 32){
-                    clickNum = 2;
-                }
+                clickNum = readOClickClicks(characteristic);
                 Log.d(TAG, String.format("Received click: %d", clickNum));
             }
-            boolean findPhoneAlert = prefs.getBoolean(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_KEY, true);
+            boolean findPhoneAlert = mPrefs.getBoolean(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_KEY, true);
 
             if (clickNum == 2 && findPhoneAlert) {
                 NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
@@ -201,7 +182,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
                 builder.setContentIntent(resultPendingIntent);
                 notificationManager.notify(0, builder.build());
             } else {
-                boolean snapPicture = prefs.getBoolean(OClickControlActivity.OCLICK_SNAP_PICTURE_KEY, true);
+                boolean snapPicture = mPrefs.getBoolean(OClickControlActivity.OCLICK_SNAP_PICTURE_KEY, true);
                 if(clickNum == 1 && snapPicture){
                     Log.d(TAG, "Setting single tap runnable");
                     mHandler.post(mInjectKeyDownRunnable);
@@ -215,11 +196,12 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
 
         @Override
         public void onReadRemoteRssi(BluetoothGatt gatt, int rssi, int status) {
-            //Log.d(TAG, "Rssi value : " + rssi);
             byte[] value = new byte[1];
             BluetoothGattCharacteristic charS = gatt.getService(OClickGattAttributes.LINK_LOSS_UUID)
                     .getCharacteristic(OClickGattAttributes.LINK_LOSS_CHAR_UUID);
             if (rssi < -90 && !mAlerting) {
+            	// start alert
+            	Log.d(TAG, "Start proximity alert : " + rssi);
                 value[0] = 2;
                 if(charS!=null){
                 	charS.setValue(value);
@@ -227,11 +209,42 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
                 }
                 mAlerting = true;
             } else if (rssi > -90 && mAlerting) {
+            	// stop alert
+            	Log.d(TAG, "Stop proximity alert : " + rssi);
                 value[0] = 0;
                 mAlerting = false;
                 charS.setValue(value);
                 mBluetoothGatt.writeCharacteristic(charS);
             }
+        }
+        
+        private void registerOClickButton(BluetoothGatt gatt){
+            // Register trigger notification (Used for camera/alarm)
+            BluetoothGattService service = gatt.getService(OClickGattAttributes.OPPO_OTOUCH_UUID);
+            BluetoothGattCharacteristic trigger = service.getCharacteristic(OClickGattAttributes.OPPO_OTOUCH_CLICK1_UUID);
+            if (trigger == null) {
+                trigger = service.getCharacteristic(OClickGattAttributes.OPPO_OTOUCH_CLICK2_UUID);
+            }
+            gatt.setCharacteristicNotification(trigger, true);
+        }
+
+        private int readOClickClicks(BluetoothGattCharacteristic characteristic){
+        	int clickNum = 0;
+
+        	int format = -1;
+        	int flag = characteristic.getProperties();
+        	if ((flag & 0x01) != 0) {
+        		format = BluetoothGattCharacteristic.FORMAT_UINT16;
+        	} else {
+        		format = BluetoothGattCharacteristic.FORMAT_UINT8;
+        	}
+        	int value = characteristic.getIntValue(format, 0);
+        	if (value == 1){
+        		clickNum = 1;
+        	} else if (value == 32){
+        		clickNum = 2;
+        	}
+        	return clickNum;
         }
     };
 
@@ -280,21 +293,29 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     @Override
     public void onCreate() {
         Log.d(TAG, "Service being started");
-    	mHandler = new Handler();
+        
+        mPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+        mPrefs.registerOnSharedPreferenceChangeListener(this);
+
+        mHandler = new Handler();
+        mRssiPoll = new Handler();
+
         IntentFilter filter = new IntentFilter();
         filter.addAction(ACTION_CANCEL_ALERT_PHONE);
         filter.addAction(ACTION_CONNECT);
         filter.addAction(ACTION_DISCONNECT);
         registerReceiver(mReceiver, filter);
-        Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-        mRingtone = RingtoneManager.getRingtone(getApplicationContext(), notification);
+
+        Uri currentRingtone = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_RINGTONE);
+        String currentRingtoneString= mPrefs.getString(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_TONE_KEY, null);
+        if(currentRingtoneString != null){
+        	currentRingtone = Uri.parse(currentRingtoneString);
+        }
+        mRingtone = RingtoneManager.getRingtone(getApplicationContext(), currentRingtone);
         mIsRunning = true;
         initialize();
-        
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        prefs.registerOnSharedPreferenceChangeListener(this);
 
-        String defaultDevice = prefs.getString(OClickControlActivity.OCLICK_CONNECT_DEVICE, null);
+        String defaultDevice = mPrefs.getString(OClickControlActivity.OCLICK_CONNECT_DEVICE, null);
         if(defaultDevice != null){
         	connect(defaultDevice);
         }
@@ -459,8 +480,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     }
     
     private void toggleRssiListener() {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(OClickBLEService.this);
-        boolean fence = prefs.getBoolean(OClickControlActivity.OCLICK_PROXIMITY_ALERT_KEY, true);
+        boolean fence = mPrefs.getBoolean(OClickControlActivity.OCLICK_PROXIMITY_ALERT_KEY, true);
 
         mRssiPoll.removeCallbacksAndMessages(null);
         if (fence) {
@@ -498,9 +518,17 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,
             String key) {
+    	Log.d(TAG, "onSharedPreferenceChanged");
         if (key.equals(OClickControlActivity.OCLICK_PROXIMITY_ALERT_KEY)) {
             if(mConnected){
                 toggleRssiListener();
+            }
+        }
+        if(key.equals(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_TONE_KEY)){
+            String currentRingtoneString= sharedPreferences.getString(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_TONE_KEY, null);
+            if(currentRingtoneString != null){
+            	Uri currentRingtone = Uri.parse(currentRingtoneString);
+                mRingtone = RingtoneManager.getRingtone(getApplicationContext(), currentRingtone);
             }
         }
     }
