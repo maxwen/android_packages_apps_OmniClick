@@ -34,7 +34,9 @@
 	<string name="menu_stop">Stop</string>
 	<string name="start_on_boot_title">Start on boot</string>
 	<string name="proximity_alert_title">Proximity alert</string>
+	<string name="snap_picture_title">Single click to take picture</string>
 	<string name="find_phone_alert_title">Double click to find phone</string>
 	<string name="find_phone_alert_ringtone_title">Ringtone</string>
-	<string name="snap_picture_title">Single click to take picture</string>
+	<string name="find_phone_alert_notification_title">Phone locator alert</string>
+	<string name="find_phone_alert_notification_text">Tap to dismiss</string>
 </resources>

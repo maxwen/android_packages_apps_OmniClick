@@ -68,6 +68,7 @@ public class OClickControlActivity extends Activity {
     
     private TextView mConnectionState;
     private TextView mFindPhoneAlertTone;
+    private TextView mDeviceAddressField;
     private String mDeviceName;
     private String mDeviceAddress;
     private boolean mConnected = false;
@@ -125,12 +126,16 @@ public class OClickControlActivity extends Activity {
             finish();
             return;
         }
-        
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(CONNECTING_ACTION);
-        registerReceiver(mReceiver, filter);
 
+        // Ensures Bluetooth is enabled on the device.  If Bluetooth is not currently enabled,
+        // fire an intent to display a dialog asking the user to grant permission to enable it.
+        if (!mBluetoothAdapter.isEnabled()) {
+        	Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+        	startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+        }
+        
         mConnectionState = (TextView) findViewById(R.id.connection_state);
+        mDeviceAddressField = (TextView) findViewById(R.id.device_address);
 
         mDeviceAddress = mPrefs.getString(OClickControlActivity.OCLICK_CONNECT_DEVICE, null);
         mDeviceName = mPrefs.getString(OClickControlActivity.OCLICK_CONNECT_NAME, null);
@@ -185,7 +190,13 @@ public class OClickControlActivity extends Activity {
 
         initConnectionState();
         mHandler.post(mRingtoneLookupRunnable);
-        
+
+        registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(CONNECTING_ACTION);
+        registerReceiver(mReceiver, filter);
+
         if(mDeviceAddress == null){
             final Intent intent = new Intent(this, OClickScanActivity.class);
             startActivity(intent);
@@ -210,9 +221,9 @@ public class OClickControlActivity extends Activity {
     		getActionBar().setTitle("");
     	}
     	if(mDeviceAddress!=null){
-    		((TextView) findViewById(R.id.device_address)).setText(mDeviceAddress);
+    		mDeviceAddressField.setText(mDeviceAddress);
     	} else {
-    		((TextView) findViewById(R.id.device_address)).setText("");
+    		mDeviceAddressField.setText("");
     	}
 
     	if(OClickBLEService.mIsRunning){
@@ -236,28 +247,19 @@ public class OClickControlActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-
         Log.d(TAG, "onResume");
-
-        // Ensures Bluetooth is enabled on the device.  If Bluetooth is not currently enabled,
-        // fire an intent to display a dialog asking the user to grant permission to enable it.
-        if (!mBluetoothAdapter.isEnabled()) {
-        	Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-        	startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-        }
-
-        registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        unregisterReceiver(mGattUpdateReceiver);
+        Log.d(TAG, "onPause");
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        unregisterReceiver(mGattUpdateReceiver);
         unregisterReceiver(mReceiver);
     }
 

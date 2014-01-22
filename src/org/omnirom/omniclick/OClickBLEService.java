@@ -131,6 +131,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
+            	// just for debugging
                 displayGattServices(getSupportedGattServices());
                 
                 registerOClickButton(gatt);
@@ -173,8 +174,8 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
                 mRingtone.play();
                 Notification.Builder builder = new Notification.Builder(OClickBLEService.this);
                 builder.setSmallIcon(R.drawable.locator_icon);
-                builder.setContentTitle("O-Click phone locator");
-                builder.setContentText("Locator alert is playing. Tap to dismiss");
+                builder.setContentTitle(getResources().getString(R.string.find_phone_alert_notification_title));
+                builder.setContentText(getResources().getString(R.string.find_phone_alert_notification_text));
                 builder.setAutoCancel(true);
                 builder.setOngoing(true);
 
