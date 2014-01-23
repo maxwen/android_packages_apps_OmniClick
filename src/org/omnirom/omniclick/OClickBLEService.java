@@ -42,6 +42,7 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.hardware.input.InputManager;
 import android.media.IAudioService;
+import android.media.AudioManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -80,6 +81,8 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     public static final String ACTION_CANCEL_ALERT_PHONE = "org.omnirom.omniclick.ACTION_CANCEL_ALERT_PHONE";
     public static final String ACTION_CONNECT = "org.omnirom.omniclick.ACTION_CONNECT";
     public static final String ACTION_DISCONNECT = "org.omnirom.omniclick.ACTION_DISCONNECT";
+    public static final String ACTION_START_ALERT = "org.omnirom.omniclick.ACTION_START_ALERT";
+    public static final String ACTION_STOP_ALERT = "org.omnirom.omniclick.ACTION_STOP_ALERT";
 
     private final String LIST_UUID = "UUID";
     
@@ -98,9 +101,20 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
             	}
             }
             if (intent.getAction().equals(ACTION_DISCONNECT)) {
-            	if(mConnected){
-            		disconnect();
-            	}
+                if(mConnected){
+                    disconnect();
+                }
+            }
+            if (intent.getAction().equals(ACTION_START_ALERT)) {
+                if(mConnected){
+                    int alertType = intent.getIntExtra(OClickControlActivity.EXTRAS_ALERT_TYPE, 2);
+                    startAlert(alertType);
+                }
+            }
+            if (intent.getAction().equals(ACTION_STOP_ALERT)) {
+                if(mConnected){
+                    stopAlert();
+                }
             }
         }
     };
@@ -198,7 +212,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
                     Log.d(TAG, "snap picture");
                     triggerVirtualKeypress(KeyEvent.KEYCODE_CAMERA);
                 }
-                if(musicControl){
+                if(musicControl && isMusicActive()){
                     Log.d(TAG, "next track");
                     dispatchMediaKeyWithWakeLockToAudioService(KeyEvent.KEYCODE_MEDIA_NEXT);
                 }
@@ -314,6 +328,8 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         filter.addAction(ACTION_CANCEL_ALERT_PHONE);
         filter.addAction(ACTION_CONNECT);
         filter.addAction(ACTION_DISCONNECT);
+        filter.addAction(ACTION_START_ALERT);
+        filter.addAction(ACTION_STOP_ALERT);
         registerReceiver(mReceiver, filter);
 
         Uri currentRingtone = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_RINGTONE);
@@ -505,6 +521,32 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         }
     }
     
+    private void startAlert(int alertType){
+        byte[] value = new byte[1];
+        BluetoothGattCharacteristic charS = mBluetoothGatt.getService(OClickGattAttributes.IMMEDIATE_ALERT_UUID)
+                .getCharacteristic(OClickGattAttributes.IMMEDIATE_ALERT_CHAR_UUID);
+
+        Log.d(TAG, "Start alert");
+        value[0] = Integer.valueOf(alertType).byteValue();
+        if(charS!=null){
+            charS.setValue(value);
+            mBluetoothGatt.writeCharacteristic(charS);
+        }
+    }
+
+    private void stopAlert(){
+        byte[] value = new byte[1];
+        BluetoothGattCharacteristic charS = mBluetoothGatt.getService(OClickGattAttributes.IMMEDIATE_ALERT_UUID)
+                .getCharacteristic(OClickGattAttributes.IMMEDIATE_ALERT_CHAR_UUID);
+
+        Log.d(TAG, "Stop alert");
+        value[0] = 0;
+        if(charS!=null){
+            charS.setValue(value);
+            mBluetoothGatt.writeCharacteristic(charS);
+        }
+    }
+    
     private void triggerVirtualKeypress(final int keyCode) {
         InputManager im = InputManager.getInstance();
         long now = SystemClock.uptimeMillis();
@@ -525,6 +567,14 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
             Log.w(TAG, "Unable to find IAudioService interface.");
         }
         return audioService;
+    }
+
+    boolean isMusicActive() {
+        final AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+        if (am == null) {
+            return false;
+        }
+        return am.isLocalOrRemoteMusicActive();
     }
 
     private void dispatchMediaKeyWithWakeLockToAudioService(int keycode) {

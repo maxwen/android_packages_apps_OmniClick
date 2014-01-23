@@ -32,10 +32,13 @@ import android.preference.PreferenceManager;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.View.OnTouchListener;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 /**
@@ -46,6 +49,8 @@ public class OClickScanActivity extends ListActivity {
     private boolean mScanning;
     private Handler mHandler;
     private BluetoothAdapter mBluetoothAdapter;
+    private View mProgress;
+    private ProgressBar mProgressBar;
 
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 20000;
@@ -61,20 +66,29 @@ public class OClickScanActivity extends ListActivity {
         final BluetoothManager bluetoothManager =
                 (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
+        
+        LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        mProgress = inflater.inflate(R.layout.actionbar_indeterminate_progress, null);
+        mProgressBar = (ProgressBar)mProgress.findViewById(R.id.refresh_progress_bar);
+        mProgressBar.setOnTouchListener(new OnTouchListener(){
+			@Override
+			public boolean onTouch(View v, MotionEvent event) {
+				if(event.getAction()==MotionEvent.ACTION_DOWN){
+					if(mScanning){
+						scanLeDevice(false);
+					}
+            	}
+            	return true;
+			}});
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.scan_menu, menu);
         if (!mScanning) {
-            menu.findItem(R.id.menu_stop).setVisible(false);
-            menu.findItem(R.id.menu_scan).setVisible(true);
-            menu.findItem(R.id.menu_refresh).setActionView(null);
+            menu.findItem(R.id.menu_scan).setActionView(null);
         } else {
-            menu.findItem(R.id.menu_stop).setVisible(true);
-            menu.findItem(R.id.menu_scan).setVisible(false);
-            menu.findItem(R.id.menu_refresh).setActionView(
-                    R.layout.actionbar_indeterminate_progress);
+            menu.findItem(R.id.menu_scan).setActionView(mProgress);
         }
         return true;
     }
@@ -83,11 +97,12 @@ public class OClickScanActivity extends ListActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.menu_scan:
-                mLeDeviceListAdapter.clear();
-                scanLeDevice(true);
-                break;
-            case R.id.menu_stop:
-                scanLeDevice(false);
+            	if(!mScanning){
+            		mLeDeviceListAdapter.clear();
+            		scanLeDevice(true);
+            	} else {
+                    scanLeDevice(false);
+            	}
                 break;
         }
         return true;
@@ -113,10 +128,8 @@ public class OClickScanActivity extends ListActivity {
     @Override
     protected void onListItemClick(ListView l, View v, int position, long id) {
         final BluetoothDevice device = mLeDeviceListAdapter.getDevice(position);
-        if (device == null) return;
         if (mScanning) {
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
-            mScanning = false;
+        	scanLeDevice(false);
         }
         
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
@@ -217,11 +230,15 @@ public class OClickScanActivity extends ListActivity {
             }
 
             BluetoothDevice device = mLeDevices.get(i);
-            final String deviceName = device.getName();
-            if (deviceName != null && deviceName.length() > 0)
+            String deviceName = device.getName();
+            if (deviceName != null && deviceName.length() > 0){
+            	if(deviceName.toLowerCase().contains("oppo")){
+            		deviceName = deviceName + " : " + getResources().getString(R.string.oppo_oclick);
+            	}
                 viewHolder.deviceName.setText(deviceName);
-            else
+            } else {
                 viewHolder.deviceName.setText(R.string.unknown_device);
+            }
             viewHolder.deviceAddress.setText(device.getAddress());
 
             return view;

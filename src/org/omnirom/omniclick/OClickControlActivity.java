@@ -35,14 +35,17 @@ import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
+import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -51,6 +54,7 @@ public class OClickControlActivity extends Activity {
 
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
+    public static final String EXTRAS_ALERT_TYPE = "ALERT_TYPE";
     
     public static final String OCLICK_CONNECT_DEVICE = "connect_device";
     public static final String OCLICK_CONNECT_NAME = "connect_name";
@@ -85,7 +89,9 @@ public class OClickControlActivity extends Activity {
     private TextView mFindPhoneAlertTitle;
     private CheckBox mMusicControl;
     private TextView mMusicControlTitle;
-
+    private View mProgress;
+    private ProgressBar mProgressBar;
+    private Button mCallOClick;
 
     // Handles various events fired by the Service.
     // ACTION_GATT_CONNECTED: connected to a GATT server.
@@ -182,7 +188,7 @@ public class OClickControlActivity extends Activity {
         mFindPhoneAlertTone.setOnTouchListener(new OnTouchListener(){
 			@Override
 			public boolean onTouch(View v, MotionEvent event) {
-				if(!mRingtoneSelect){
+				if(event.getAction()==MotionEvent.ACTION_DOWN){
 					selectAlertRingtone();
 				}
 				return true;
@@ -212,6 +218,42 @@ public class OClickControlActivity extends Activity {
                 mFindPhoneAlert.setEnabled(!isChecked);
                 mFindPhoneAlertTitle.setEnabled(!isChecked);
             }});
+
+        mCallOClick = (Button) findViewById(R.id.start_alert);
+        mCallOClick.setOnTouchListener(new OnTouchListener(){
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if(event.getAction()==MotionEvent.ACTION_DOWN){
+                    if(!mConnected){
+                        return true;
+                    }
+                    Intent alertIntent = new Intent(OClickBLEService.ACTION_START_ALERT);
+                    alertIntent.putExtra(EXTRAS_ALERT_TYPE, 1);
+                    OClickControlActivity.this.sendBroadcast(alertIntent);
+                    
+                    mHandler.postDelayed(new Runnable(){
+                        @Override
+                        public void run() {
+                            Intent alertIntent = new Intent(OClickBLEService.ACTION_STOP_ALERT);
+                            OClickControlActivity.this.sendBroadcast(alertIntent);
+                        }}, 3000);
+                }
+                return true;
+            }});
+
+        LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        mProgress = inflater.inflate(R.layout.actionbar_indeterminate_progress, null);
+        mProgressBar = (ProgressBar)mProgress.findViewById(R.id.refresh_progress_bar);
+        mProgressBar.setOnTouchListener(new OnTouchListener(){
+			@Override
+			public boolean onTouch(View v, MotionEvent event) {
+				if(event.getAction()==MotionEvent.ACTION_DOWN){
+			        setConnecting(false);
+			        Intent startIntent = new Intent(OClickControlActivity.this, OClickBLEService.class);
+			        OClickControlActivity.this.stopService(startIntent);
+            	}
+            	return true;
+			}});
 
         mGattUpdateReceiver = new GattBroadcastReceiver();
         registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
@@ -247,6 +289,7 @@ public class OClickControlActivity extends Activity {
         	mConnected = false;
         }
         updateConnectionState(mConnected ? R.string.connected : R.string.disconnected);
+        mCallOClick.setEnabled(mConnected);
         invalidateOptionsMenu();
     }
 
@@ -311,8 +354,7 @@ public class OClickControlActivity extends Activity {
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.oclick_menu, menu);
         if (mConnecting){
-            menu.findItem(R.id.menu_refresh).setActionView(
-                    R.layout.actionbar_indeterminate_progress);
+            menu.findItem(R.id.menu_refresh).setActionView(mProgress);
         } else {
             menu.findItem(R.id.menu_refresh).setActionView(null);
         }
@@ -350,7 +392,6 @@ public class OClickControlActivity extends Activity {
     
     private void selectAlertRingtone(){
         // Launch the ringtone picker
-    	mRingtoneSelect = true;
         Intent intent = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER);
         intent.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, false);        
         Uri currentRingtone = getCurrentRingtone();
@@ -373,7 +414,6 @@ public class OClickControlActivity extends Activity {
                 mPrefs.edit().putString(OCLICK_FIND_PHONE_ALERT_TONE_KEY, uri.toString()).commit();
                 mHandler.post(mRingtoneLookupRunnable);
         	}
-        	mRingtoneSelect = false;
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
