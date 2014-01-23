@@ -74,7 +74,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     
     public static boolean mIsRunning;
     public static boolean mConnected;
-    private OCLickReceiver mReceiver = new OCLickReceiver();
+    private OClickReceiver mReceiver = new OClickReceiver();
 
     public final static String ACTION_GATT_CONNECTED = "org.omnirom.omniclick.ACTION_GATT_CONNECTED";
     public final static String ACTION_GATT_DISCONNECTED = "org.omnirom.omniclick.ACTION_GATT_DISCONNECTED";
@@ -86,7 +86,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
 
     private final String LIST_UUID = "UUID";
     
-    class OCLickReceiver extends BroadcastReceiver {
+    public class OClickReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(ACTION_CANCEL_ALERT_PHONE)) {
