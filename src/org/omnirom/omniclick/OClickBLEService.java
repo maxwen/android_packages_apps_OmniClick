@@ -180,28 +180,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
 
             if (clickNum == 2){
                 if(findPhoneAlert) {
-                    NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-
-                    if (mRingtone.isPlaying()) {
-                        Log.d(TAG, "Stopping ring alarm");
-                        mRingtone.stop();
-                        notificationManager.cancel(0);
-                        return;
-                    }
-
-                    Log.d(TAG, "Executing ring alarm");
-
-                    mRingtone.play();
-                    Notification.Builder builder = new Notification.Builder(OClickBLEService.this);
-                    builder.setSmallIcon(R.drawable.locator_icon);
-                    builder.setContentTitle(getResources().getString(R.string.find_phone_alert_notification_title));
-                    builder.setContentText(getResources().getString(R.string.find_phone_alert_notification_text));
-                    builder.setAutoCancel(true);
-                    builder.setOngoing(true);
-
-                    PendingIntent resultPendingIntent = PendingIntent.getBroadcast(getBaseContext(), 0, new Intent(ACTION_CANCEL_ALERT_PHONE), 0);
-                    builder.setContentIntent(resultPendingIntent);
-                    notificationManager.notify(0, builder.build());
+                    handleFindMeAlert();
                 } else if(musicControl){
                     Log.d(TAG, "start/stop music");
                     dispatchMediaKeyWithWakeLockToAudioService(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
@@ -547,6 +526,33 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         }
     }
     
+    private void handleFindMeAlert(){
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+        if (mRingtone.isPlaying()) {
+            Log.d(TAG, "Stopping ring alarm");
+            mRingtone.stop();
+            notificationManager.cancel(0);
+            return;
+        }
+
+        Log.d(TAG, "Executing ring alarm");
+
+        // unmute and set volume to max
+        adjustRingtone();
+        mRingtone.play();
+        Notification.Builder builder = new Notification.Builder(OClickBLEService.this);
+        builder.setSmallIcon(R.drawable.locator_icon);
+        builder.setContentTitle(getResources().getString(R.string.find_phone_alert_notification_title));
+        builder.setContentText(getResources().getString(R.string.find_phone_alert_notification_text));
+        builder.setAutoCancel(true);
+        builder.setOngoing(true);
+
+        PendingIntent resultPendingIntent = PendingIntent.getBroadcast(getBaseContext(), 0, new Intent(ACTION_CANCEL_ALERT_PHONE), 0);
+        builder.setContentIntent(resultPendingIntent);
+        notificationManager.notify(0, builder.build());
+    }
+    
     private void triggerVirtualKeypress(final int keyCode) {
         InputManager im = InputManager.getInstance();
         long now = SystemClock.uptimeMillis();
@@ -577,6 +583,15 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         return am.isLocalOrRemoteMusicActive();
     }
 
+    private void adjustRingtone() {
+        final AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+        if (am == null) {
+            return;
+        }
+        am.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
+        am.setStreamVolume(AudioManager.STREAM_RING, am.getStreamMaxVolume(AudioManager.STREAM_RING), 0);
+    }
+    
     private void dispatchMediaKeyWithWakeLockToAudioService(int keycode) {
        if (ActivityManagerNative.isSystemReady()) {
             IAudioService audioService = getAudioService();
