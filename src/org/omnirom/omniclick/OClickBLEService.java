@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import android.app.ActivityManagerNative;
+import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -40,6 +41,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.hardware.input.InputManager;
 import android.media.IAudioService;
 import android.media.AudioManager;
@@ -49,6 +52,7 @@ import android.net.Uri;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.ServiceManager;
@@ -93,6 +97,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(ACTION_CANCEL_ALERT_PHONE)) {
                 if (mRingtone.isPlaying()) {
+                    Log.d(TAG, "Stopping ring alarm");
                     restoreRingtoneProperties();
                     mRingtone.stop();
                 }
@@ -184,12 +189,18 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
             if (clickNum == 2){
                 if(findPhoneAlert) {
                     handleFindMeAlert();
+                } else if(snapPicture && isCameraActive()){
+                    Log.d(TAG, "camera active");
+                    triggerVirtualKeypress(KeyEvent.KEYCODE_FOCUS);
                 } else if(musicControl){
                     Log.d(TAG, "start/stop music");
                     dispatchMediaKeyWithWakeLockToAudioService(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
                 }
             }
             if(clickNum == 1){
+//                if(isCameraActive()){
+//                    Log.d(TAG, "camera active");
+//                }
                 if(snapPicture){
                     Log.d(TAG, "snap picture");
                     triggerVirtualKeypress(KeyEvent.KEYCODE_CAMERA);
@@ -541,7 +552,6 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         }
 
         Log.d(TAG, "Executing ring alarm");
-
         // unmute and set volume to max
         saveRingtoneProperties();
         adjustRingtoneProperties();
@@ -632,6 +642,30 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         }
     }
     
+    private boolean isCameraActive() {
+        final ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        final List<ActivityManager.RecentTaskInfo> recentTasks = am
+                .getRecentTasks(3, ActivityManager.RECENT_IGNORE_UNAVAILABLE);
+        final ActivityManager.RecentTaskInfo recentInfo = recentTasks.get(0);
+
+        Intent intent = new Intent(recentInfo.baseIntent);
+        if(intent.toString().contains("focal") ||
+                intent.toString().contains("camera")){
+            return true;
+        }
+
+        if (recentInfo.origActivity != null) {
+            intent.setComponent(recentInfo.origActivity);
+        }
+        
+        String pkgName = intent.getComponent().getPackageName().toLowerCase();
+        if(pkgName.contains("focal") ||
+                pkgName.contains("camera")){
+            return true;
+        }
+        return false;
+    }
+
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,
             String key) {
