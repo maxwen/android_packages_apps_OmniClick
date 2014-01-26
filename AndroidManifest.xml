@@ -53,6 +53,7 @@
 		<activity android:name="org.omnirom.omniclick.OClickScanActivity" />
 		<service
 			android:name="org.omnirom.omniclick.OClickBLEService"
+			android:excludeFromRecents="true"
 			android:enabled="true" />
 		<receiver android:name="org.omnirom.omniclick.OClickBootReceiver" >
 			<intent-filter>

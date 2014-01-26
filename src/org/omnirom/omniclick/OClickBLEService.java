@@ -180,28 +180,29 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
             if (OClickGattAttributes.OPPO_OTOUCH_CLICK1_UUID.equals(characteristic.getUuid()) ||
                     OClickGattAttributes.OPPO_OTOUCH_CLICK2_UUID.equals(characteristic.getUuid())) {
                 clickNum = readOClickClicks(characteristic);
-                Log.d(TAG, String.format("Received click: %d", clickNum));
             }
+            if(clickNum == 0){
+                return;
+            }
+
+            Log.d(TAG, String.format("Received click: %d", clickNum));
             boolean findPhoneAlert = mPrefs.getBoolean(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_KEY, true);
             boolean musicControl= mPrefs.getBoolean(OClickControlActivity.OCLICK_MUSIC_CONTROL_KEY, false);
             boolean snapPicture = mPrefs.getBoolean(OClickControlActivity.OCLICK_SNAP_PICTURE_KEY, true);
 
             if (clickNum == 2){
-                if(findPhoneAlert) {
-                    handleFindMeAlert();
-                } else if(snapPicture && isCameraActive()){
+                if(snapPicture && isCameraActive()){
                     Log.d(TAG, "camera active");
-                    triggerVirtualKeypress(KeyEvent.KEYCODE_FOCUS);
+                    triggerVirtualDownKeypress(KeyEvent.KEYCODE_FOCUS);
+                } else if(findPhoneAlert) {
+                    handleFindMeAlert();
                 } else if(musicControl){
                     Log.d(TAG, "start/stop music");
                     dispatchMediaKeyWithWakeLockToAudioService(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
                 }
             }
             if(clickNum == 1){
-//                if(isCameraActive()){
-//                    Log.d(TAG, "camera active");
-//                }
-                if(snapPicture){
+                if(snapPicture /*&& isCameraActive()*/){
                     Log.d(TAG, "snap picture");
                     triggerVirtualKeypress(KeyEvent.KEYCODE_CAMERA);
                 }
@@ -580,7 +581,19 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         im.injectInputEvent(downEvent, InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
         im.injectInputEvent(upEvent, InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
     }
-    
+
+    private void triggerVirtualDownKeypress(final int keyCode) {
+        InputManager im = InputManager.getInstance();
+        long now = SystemClock.uptimeMillis();
+
+        final KeyEvent downEvent = new KeyEvent(now, now, KeyEvent.ACTION_DOWN,
+                keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
+                KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
+        final KeyEvent upEvent = KeyEvent.changeAction(downEvent, KeyEvent.ACTION_UP);
+
+        im.injectInputEvent(downEvent, InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
+    }
+        
     private IAudioService getAudioService() {
         IAudioService audioService = IAudioService.Stub.asInterface(
                 ServiceManager.checkService(Context.AUDIO_SERVICE));
