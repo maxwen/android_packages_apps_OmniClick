@@ -71,6 +71,8 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     boolean mAlerting;
     private Ringtone mRingtone;
     private SharedPreferences mPrefs;
+    private int mRingerModeSaved;
+    private int mRingerVolumeSaved;
     
     public static boolean mIsRunning;
     public static boolean mConnected;
@@ -91,6 +93,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(ACTION_CANCEL_ALERT_PHONE)) {
                 if (mRingtone.isPlaying()) {
+                    restoreRingtoneProperties();
                     mRingtone.stop();
                 }
             }
@@ -531,6 +534,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
 
         if (mRingtone.isPlaying()) {
             Log.d(TAG, "Stopping ring alarm");
+            restoreRingtoneProperties();
             mRingtone.stop();
             notificationManager.cancel(0);
             return;
@@ -539,7 +543,8 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         Log.d(TAG, "Executing ring alarm");
 
         // unmute and set volume to max
-        adjustRingtone();
+        saveRingtoneProperties();
+        adjustRingtoneProperties();
         mRingtone.play();
         Notification.Builder builder = new Notification.Builder(OClickBLEService.this);
         builder.setSmallIcon(R.drawable.locator_icon);
@@ -583,7 +588,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         return am.isLocalOrRemoteMusicActive();
     }
 
-    private void adjustRingtone() {
+    private void adjustRingtoneProperties() {
         final AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
         if (am == null) {
             return;
@@ -592,6 +597,24 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         am.setStreamVolume(AudioManager.STREAM_RING, am.getStreamMaxVolume(AudioManager.STREAM_RING), 0);
     }
     
+    private void restoreRingtoneProperties() {
+        final AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+        if (am == null) {
+            return;
+        }
+        am.setRingerMode(mRingerModeSaved);
+        am.setStreamVolume(AudioManager.STREAM_RING, mRingerVolumeSaved, 0);
+    }
+
+    private void saveRingtoneProperties() {
+        final AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+        if (am == null) {
+            return;
+        }
+        mRingerModeSaved = am.getRingerMode();
+        mRingerVolumeSaved = am.getStreamVolume(AudioManager.STREAM_RING);
+    }
+
     private void dispatchMediaKeyWithWakeLockToAudioService(int keycode) {
        if (ActivityManagerNative.isSystemReady()) {
             IAudioService audioService = getAudioService();
