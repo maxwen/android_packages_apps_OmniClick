@@ -51,10 +51,7 @@
 			</intent-filter>
 		</activity>
 		<activity android:name="org.omnirom.omniclick.OClickScanActivity" />
-		<service
-			android:name="org.omnirom.omniclick.OClickBLEService"
-			android:excludeFromRecents="true"
-			android:enabled="true" />
+		<service android:name="org.omnirom.omniclick.OClickBLEService" />
 		<receiver android:name="org.omnirom.omniclick.OClickBootReceiver" >
 			<intent-filter>
 				<action android:name="android.intent.action.BOOT_COMPLETED" />
