@@ -30,30 +30,34 @@ public class OClickBootReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(final Context context, Intent intent) {
-    	if("android.intent.action.BOOT_COMPLETED".equals(intent.getAction())) {
-    		SharedPreferences prefs = PreferenceManager
-    				.getDefaultSharedPreferences(context);
-    		if (prefs.getBoolean(OClickControlActivity.OCLICK_START_ON_BOOT_KEY, true)
-    				&& prefs.getString(OClickControlActivity.OCLICK_CONNECT_DEVICE, null) != null) {
-    	        final BluetoothManager bluetoothManager =
-    	                (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
-    	        BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
-    	        if (bluetoothAdapter == null) {
-    	        	Log.e(TAG, "No bluetooth support");
-    	        	return;
-    	        }
-    	        if (!bluetoothAdapter.isEnabled()) {
-    	        	Log.e(TAG, "Bluetooth support not enabled");
-    	        	return;    	        	
-    	        }
-    			try {
-    				Log.d(TAG, "android.intent.action.BOOT_COMPLETED");
-    				Intent startIntent = new Intent(context, OClickBLEService.class);
-    				context.startService(startIntent);
-    			} catch (Exception e) {
-    				Log.e(TAG, "Can't start load oclick service", e);
-    			}
-    		}
-    	}
+        if ("android.intent.action.BOOT_COMPLETED".equals(intent.getAction())) {
+            SharedPreferences prefs = PreferenceManager
+                    .getDefaultSharedPreferences(context);
+            if (prefs.getBoolean(
+                    OClickControlActivity.OCLICK_START_ON_BOOT_KEY, true)
+                    && prefs.getString(
+                            OClickControlActivity.OCLICK_CONNECT_DEVICE, null) != null) {
+                final BluetoothManager bluetoothManager = (BluetoothManager) context
+                        .getSystemService(Context.BLUETOOTH_SERVICE);
+                BluetoothAdapter bluetoothAdapter = bluetoothManager
+                        .getAdapter();
+                if (bluetoothAdapter == null) {
+                    Log.e(TAG, "No bluetooth support");
+                    return;
+                }
+                if (!bluetoothAdapter.isEnabled()) {
+                    Log.e(TAG, "Bluetooth support not enabled");
+                    return;
+                }
+                try {
+                    Log.d(TAG, "android.intent.action.BOOT_COMPLETED");
+                    Intent startIntent = new Intent(context,
+                            OClickBLEService.class);
+                    context.startService(startIntent);
+                } catch (Exception e) {
+                    Log.e(TAG, "Can't start load oclick service", e);
+                }
+            }
+        }
     }
 }

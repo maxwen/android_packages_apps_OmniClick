@@ -64,7 +64,8 @@ import android.view.KeyEvent;
 
 /**
  */
-public class OClickBLEService extends Service implements OnSharedPreferenceChangeListener {
+public class OClickBLEService extends Service implements
+        OnSharedPreferenceChangeListener {
     private final static String TAG = OClickBLEService.class.getSimpleName();
 
     private BluetoothManager mBluetoothManager;
@@ -77,7 +78,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     private SharedPreferences mPrefs;
     private int mRingerModeSaved;
     private int mRingerVolumeSaved;
-    
+
     public static boolean mIsRunning;
     public static boolean mConnected;
     private OClickReceiver mReceiver = new OClickReceiver();
@@ -91,7 +92,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     public static final String ACTION_STOP_ALERT = "org.omnirom.omniclick.ACTION_STOP_ALERT";
 
     private final String LIST_UUID = "UUID";
-    
+
     public class OClickReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -103,40 +104,44 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
                 }
             }
             if (intent.getAction().equals(ACTION_CONNECT)) {
-            	if (!mConnected){
-            		String deviceName = intent.getStringExtra(OClickControlActivity.EXTRAS_DEVICE_ADDRESS);
-            		connect(deviceName);
-            	}
+                if (!mConnected) {
+                    String deviceName = intent
+                            .getStringExtra(OClickControlActivity.EXTRAS_DEVICE_ADDRESS);
+                    connect(deviceName);
+                }
             }
             if (intent.getAction().equals(ACTION_DISCONNECT)) {
-                if(mConnected){
+                if (mConnected) {
                     disconnect();
                 }
             }
             if (intent.getAction().equals(ACTION_START_ALERT)) {
-                if(mConnected){
-                    int alertType = intent.getIntExtra(OClickControlActivity.EXTRAS_ALERT_TYPE, 2);
+                if (mConnected) {
+                    int alertType = intent.getIntExtra(
+                            OClickControlActivity.EXTRAS_ALERT_TYPE, 2);
                     startAlert(alertType);
                 }
             }
             if (intent.getAction().equals(ACTION_STOP_ALERT)) {
-                if(mConnected){
+                if (mConnected) {
                     stopAlert();
                 }
             }
         }
     };
-    
-    // Implements callback methods for GATT events that the app cares about.  For example,
+
+    // Implements callback methods for GATT events that the app cares about. For
+    // example,
     // connection change and services discovered.
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
-        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+        public void onConnectionStateChange(BluetoothGatt gatt, int status,
+                int newState) {
             String intentAction;
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 intentAction = ACTION_GATT_CONNECTED;
                 Log.i(TAG, "Connected to GATT server.");
-                mConnected = true; 
+                mConnected = true;
                 broadcastUpdate(intentAction);
                 mBluetoothGatt.discoverServices();
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
@@ -152,13 +157,13 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
             final Intent intent = new Intent(action);
             sendBroadcast(intent);
         }
-        
+
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-            	// just for debugging
+                // just for debugging
                 displayGattServices(getSupportedGattServices());
-                
+
                 registerOClickButton(gatt);
 
                 toggleRssiListener();
@@ -173,40 +178,46 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         }
 
         @Override
-        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+        public void onCharacteristicChanged(BluetoothGatt gatt,
+                BluetoothGattCharacteristic characteristic) {
             Log.d(TAG, "Characteristic changed " + characteristic.getUuid());
 
             int clickNum = 0;
-            if (OClickGattAttributes.OPPO_OTOUCH_CLICK1_UUID.equals(characteristic.getUuid()) ||
-                    OClickGattAttributes.OPPO_OTOUCH_CLICK2_UUID.equals(characteristic.getUuid())) {
+            if (OClickGattAttributes.OPPO_OTOUCH_CLICK1_UUID
+                    .equals(characteristic.getUuid())
+                    || OClickGattAttributes.OPPO_OTOUCH_CLICK2_UUID
+                            .equals(characteristic.getUuid())) {
                 clickNum = readOClickClicks(characteristic);
             }
-            if(clickNum == 0){
+            if (clickNum == 0) {
                 return;
             }
 
             Log.d(TAG, String.format("Received click: %d", clickNum));
-            boolean findPhoneAlert = mPrefs.getBoolean(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_KEY, true);
-            boolean musicControl= mPrefs.getBoolean(OClickControlActivity.OCLICK_MUSIC_CONTROL_KEY, false);
-            boolean snapPicture = mPrefs.getBoolean(OClickControlActivity.OCLICK_SNAP_PICTURE_KEY, true);
+            boolean findPhoneAlert = mPrefs.getBoolean(
+                    OClickControlActivity.OCLICK_FIND_PHONE_ALERT_KEY, true);
+            boolean musicControl = mPrefs.getBoolean(
+                    OClickControlActivity.OCLICK_MUSIC_CONTROL_KEY, false);
+            boolean snapPicture = mPrefs.getBoolean(
+                    OClickControlActivity.OCLICK_SNAP_PICTURE_KEY, true);
 
-            if (clickNum == 2){
-                if(snapPicture && isCameraActive()){
+            if (clickNum == 2) {
+                if (snapPicture && isCameraActive()) {
                     Log.d(TAG, "camera active");
                     triggerVirtualDownKeypress(KeyEvent.KEYCODE_FOCUS);
-                } else if(findPhoneAlert) {
+                } else if (findPhoneAlert) {
                     handleFindMeAlert();
-                } else if(musicControl){
+                } else if (musicControl) {
                     Log.d(TAG, "start/stop music");
                     dispatchMediaKeyWithWakeLockToAudioService(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
                 }
             }
-            if(clickNum == 1){
-                if(snapPicture /*&& isCameraActive()*/){
+            if (clickNum == 1) {
+                if (snapPicture /* && isCameraActive() */) {
                     Log.d(TAG, "snap picture");
                     triggerVirtualKeypress(KeyEvent.KEYCODE_CAMERA);
                 }
-                if(musicControl && isMusicActive()){
+                if (musicControl && isMusicActive()) {
                     Log.d(TAG, "next track");
                     dispatchMediaKeyWithWakeLockToAudioService(KeyEvent.KEYCODE_MEDIA_NEXT);
                 }
@@ -216,63 +227,67 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         @Override
         public void onReadRemoteRssi(BluetoothGatt gatt, int rssi, int status) {
             byte[] value = new byte[1];
-            BluetoothGattCharacteristic charS = gatt.getService(OClickGattAttributes.LINK_LOSS_UUID)
-                    .getCharacteristic(OClickGattAttributes.LINK_LOSS_CHAR_UUID);
+            BluetoothGattCharacteristic charS = gatt.getService(
+                    OClickGattAttributes.LINK_LOSS_UUID).getCharacteristic(
+                    OClickGattAttributes.LINK_LOSS_CHAR_UUID);
             if (rssi < -90 && !mAlerting) {
-            	// start alert
-            	Log.d(TAG, "Start proximity alert : " + rssi);
+                // start alert
+                Log.d(TAG, "Start proximity alert : " + rssi);
                 value[0] = 2;
-                if(charS!=null){
-                	charS.setValue(value);
-                	mBluetoothGatt.writeCharacteristic(charS);
+                if (charS != null) {
+                    charS.setValue(value);
+                    mBluetoothGatt.writeCharacteristic(charS);
                 }
                 mAlerting = true;
             } else if (rssi > -90 && mAlerting) {
-            	// stop alert
-            	Log.d(TAG, "Stop proximity alert : " + rssi);
+                // stop alert
+                Log.d(TAG, "Stop proximity alert : " + rssi);
                 value[0] = 0;
                 mAlerting = false;
                 charS.setValue(value);
                 mBluetoothGatt.writeCharacteristic(charS);
             }
         }
-        
-        private void registerOClickButton(BluetoothGatt gatt){
+
+        private void registerOClickButton(BluetoothGatt gatt) {
             // Register trigger notification (Used for camera/alarm)
-            BluetoothGattService service = gatt.getService(OClickGattAttributes.OPPO_OTOUCH_UUID);
-            BluetoothGattCharacteristic trigger = service.getCharacteristic(OClickGattAttributes.OPPO_OTOUCH_CLICK1_UUID);
+            BluetoothGattService service = gatt
+                    .getService(OClickGattAttributes.OPPO_OTOUCH_UUID);
+            BluetoothGattCharacteristic trigger = service
+                    .getCharacteristic(OClickGattAttributes.OPPO_OTOUCH_CLICK1_UUID);
             if (trigger == null) {
-                trigger = service.getCharacteristic(OClickGattAttributes.OPPO_OTOUCH_CLICK2_UUID);
+                trigger = service
+                        .getCharacteristic(OClickGattAttributes.OPPO_OTOUCH_CLICK2_UUID);
             }
             gatt.setCharacteristicNotification(trigger, true);
         }
 
-        private int readOClickClicks(BluetoothGattCharacteristic characteristic){
-        	int clickNum = 0;
+        private int readOClickClicks(BluetoothGattCharacteristic characteristic) {
+            int clickNum = 0;
 
-        	int format = -1;
-        	int flag = characteristic.getProperties();
-        	if ((flag & 0x01) != 0) {
-        		format = BluetoothGattCharacteristic.FORMAT_UINT16;
-        	} else {
-        		format = BluetoothGattCharacteristic.FORMAT_UINT8;
-        	}
-        	int value = characteristic.getIntValue(format, 0);
-        	if (value == 1){
-        		clickNum = 1;
-        	} else if (value == 32){
-        		clickNum = 2;
-        	}
-        	return clickNum;
+            int format = -1;
+            int flag = characteristic.getProperties();
+            if ((flag & 0x01) != 0) {
+                format = BluetoothGattCharacteristic.FORMAT_UINT16;
+            } else {
+                format = BluetoothGattCharacteristic.FORMAT_UINT8;
+            }
+            int value = characteristic.getIntValue(format, 0);
+            if (value == 1) {
+                clickNum = 1;
+            } else if (value == 32) {
+                clickNum = 2;
+            }
+            return clickNum;
         }
     };
 
     private void displayGattServices(List<BluetoothGattService> gattServices) {
-        if (gattServices == null) return;
+        if (gattServices == null)
+            return;
         String uuid = null;
         ArrayList<HashMap<String, String>> gattServiceData = new ArrayList<HashMap<String, String>>();
-        ArrayList<ArrayList<HashMap<String, String>>> gattCharacteristicData
-                = new ArrayList<ArrayList<HashMap<String, String>>>();
+        ArrayList<ArrayList<HashMap<String, String>>> gattCharacteristicData = new ArrayList<ArrayList<HashMap<String, String>>>();
         ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics = new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
 
         // Loops through available GATT Services.
@@ -282,12 +297,10 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
             currentServiceData.put(LIST_UUID, uuid);
             gattServiceData.add(currentServiceData);
 
-            ArrayList<HashMap<String, String>> gattCharacteristicGroupData =
-                    new ArrayList<HashMap<String, String>>();
-            List<BluetoothGattCharacteristic> gattCharacteristics =
-                    gattService.getCharacteristics();
-            ArrayList<BluetoothGattCharacteristic> charas =
-                    new ArrayList<BluetoothGattCharacteristic>();
+            ArrayList<HashMap<String, String>> gattCharacteristicGroupData = new ArrayList<HashMap<String, String>>();
+            List<BluetoothGattCharacteristic> gattCharacteristics = gattService
+                    .getCharacteristics();
+            ArrayList<BluetoothGattCharacteristic> charas = new ArrayList<BluetoothGattCharacteristic>();
 
             // Loops through available Characteristics.
             for (BluetoothGattCharacteristic gattCharacteristic : gattCharacteristics) {
@@ -300,9 +313,10 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
             mGattCharacteristics.add(charas);
             gattCharacteristicData.add(gattCharacteristicGroupData);
         }
-        Log.d(TAG, "" + gattServiceData.toString() + " " + gattCharacteristicData.toString());
+        Log.d(TAG, "" + gattServiceData.toString() + " "
+                + gattCharacteristicData.toString());
     }
-    
+
     public class LocalBinder extends Binder {
         OClickBLEService getService() {
             return OClickBLEService.this;
@@ -312,7 +326,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     @Override
     public void onCreate() {
         Log.d(TAG, "Service being started");
-        
+
         mPrefs = PreferenceManager.getDefaultSharedPreferences(this);
         mPrefs.registerOnSharedPreferenceChangeListener(this);
 
@@ -326,18 +340,22 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         filter.addAction(ACTION_STOP_ALERT);
         registerReceiver(mReceiver, filter);
 
-        Uri currentRingtone = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_RINGTONE);
-        String currentRingtoneString= mPrefs.getString(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_TONE_KEY, null);
-        if(currentRingtoneString != null){
-        	currentRingtone = Uri.parse(currentRingtoneString);
+        Uri currentRingtone = RingtoneManager.getActualDefaultRingtoneUri(this,
+                RingtoneManager.TYPE_RINGTONE);
+        String currentRingtoneString = mPrefs.getString(
+                OClickControlActivity.OCLICK_FIND_PHONE_ALERT_TONE_KEY, null);
+        if (currentRingtoneString != null) {
+            currentRingtone = Uri.parse(currentRingtoneString);
         }
-        mRingtone = RingtoneManager.getRingtone(getApplicationContext(), currentRingtone);
+        mRingtone = RingtoneManager.getRingtone(getApplicationContext(),
+                currentRingtone);
         mIsRunning = true;
         initialize();
 
-        String defaultDevice = mPrefs.getString(OClickControlActivity.OCLICK_CONNECT_DEVICE, null);
-        if(defaultDevice != null){
-        	connect(defaultDevice);
+        String defaultDevice = mPrefs.getString(
+                OClickControlActivity.OCLICK_CONNECT_DEVICE, null);
+        if (defaultDevice != null) {
+            connect(defaultDevice);
         }
     }
 
@@ -351,7 +369,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         mIsRunning = false;
         disconnect();
     }
-    
+
     @Override
     public IBinder onBind(Intent intent) {
         return mBinder;
@@ -359,8 +377,10 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
 
     @Override
     public boolean onUnbind(Intent intent) {
-        // After using a given device, you should make sure that BluetoothGatt.close() is called
-        // such that resources are cleaned up properly.  In this particular example, close() is
+        // After using a given device, you should make sure that
+        // BluetoothGatt.close() is called
+        // such that resources are cleaned up properly. In this particular
+        // example, close() is
         // invoked when the UI is disconnected from the Service.
         close();
         return super.onUnbind(intent);
@@ -370,11 +390,12 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
 
     /**
      * Initializes a reference to the local Bluetooth adapter.
-     *
+     * 
      * @return Return true if the initialization is successful.
      */
     public boolean initialize() {
-        // For API level 18 and above, get a reference to BluetoothAdapter through
+        // For API level 18 and above, get a reference to BluetoothAdapter
+        // through
         // BluetoothManager.
         if (mBluetoothManager == null) {
             mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -395,24 +416,28 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
 
     /**
      * Connects to the GATT server hosted on the Bluetooth LE device.
-     *
-     * @param address The device address of the destination device.
-     *
-     * @return Return true if the connection is initiated successfully. The connection result
-     *         is reported asynchronously through the
+     * 
+     * @param address
+     *            The device address of the destination device.
+     * 
+     * @return Return true if the connection is initiated successfully. The
+     *         connection result is reported asynchronously through the
      *         {@code BluetoothGattCallback#onConnectionStateChange(android.bluetooth.BluetoothGatt, int, int)}
      *         callback.
      */
     public boolean connect(final String address) {
         if (mBluetoothAdapter == null || address == null) {
-            Log.w(TAG, "BluetoothAdapter not initialized or unspecified address.");
+            Log.w(TAG,
+                    "BluetoothAdapter not initialized or unspecified address.");
             return false;
         }
 
-        // Previously connected device.  Try to reconnect.
-        if (mBluetoothDeviceAddress != null && address.equals(mBluetoothDeviceAddress)
+        // Previously connected device. Try to reconnect.
+        if (mBluetoothDeviceAddress != null
+                && address.equals(mBluetoothDeviceAddress)
                 && mBluetoothGatt != null) {
-            Log.d(TAG, "Trying to use an existing mBluetoothGatt for connection.");
+            Log.d(TAG,
+                    "Trying to use an existing mBluetoothGatt for connection.");
             if (mBluetoothGatt.connect()) {
                 return true;
             } else {
@@ -420,7 +445,8 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
             }
         }
 
-        final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+        final BluetoothDevice device = mBluetoothAdapter
+                .getRemoteDevice(address);
         if (device == null) {
             Log.w(TAG, "Device not found.  Unable to connect.");
             return false;
@@ -432,8 +458,8 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     }
 
     /**
-     * Disconnects an existing connection or cancel a pending connection. The disconnection result
-     * is reported asynchronously through the
+     * Disconnects an existing connection or cancel a pending connection. The
+     * disconnection result is reported asynchronously through the
      * {@code BluetoothGattCallback#onConnectionStateChange(android.bluetooth.BluetoothGatt, int, int)}
      * callback.
      */
@@ -446,8 +472,8 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     }
 
     /**
-     * After using a given BLE device, the app must call this method to ensure resources are
-     * released properly.
+     * After using a given BLE device, the app must call this method to ensure
+     * resources are released properly.
      */
     public void close() {
         if (mBluetoothGatt == null) {
@@ -458,11 +484,13 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     }
 
     /**
-     * Request a read on a given {@code BluetoothGattCharacteristic}. The read result is reported
-     * asynchronously through the {@code BluetoothGattCallback#onCharacteristicRead(android.bluetooth.BluetoothGatt, android.bluetooth.BluetoothGattCharacteristic, int)}
+     * Request a read on a given {@code BluetoothGattCharacteristic}. The read
+     * result is reported asynchronously through the
+     * {@code BluetoothGattCallback#onCharacteristicRead(android.bluetooth.BluetoothGatt, android.bluetooth.BluetoothGattCharacteristic, int)}
      * callback.
-     *
-     * @param characteristic The characteristic to read from.
+     * 
+     * @param characteristic
+     *            The characteristic to read from.
      */
     public void readCharacteristic(BluetoothGattCharacteristic characteristic) {
         if (mBluetoothAdapter == null || mBluetoothGatt == null) {
@@ -474,12 +502,14 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
 
     /**
      * Enables or disables notification on a give characteristic.
-     *
-     * @param characteristic Characteristic to act on.
-     * @param enabled If true, enable notification.  False otherwise.
+     * 
+     * @param characteristic
+     *            Characteristic to act on.
+     * @param enabled
+     *            If true, enable notification. False otherwise.
      */
-    public void setCharacteristicNotification(BluetoothGattCharacteristic characteristic,
-                                              boolean enabled) {
+    public void setCharacteristicNotification(
+            BluetoothGattCharacteristic characteristic, boolean enabled) {
         if (mBluetoothAdapter == null || mBluetoothGatt == null) {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
@@ -488,19 +518,22 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     }
 
     /**
-     * Retrieves a list of supported GATT services on the connected device. This should be
-     * invoked only after {@code BluetoothGatt#discoverServices()} completes successfully.
-     *
+     * Retrieves a list of supported GATT services on the connected device. This
+     * should be invoked only after {@code BluetoothGatt#discoverServices()}
+     * completes successfully.
+     * 
      * @return A {@code List} of supported services.
      */
     public List<BluetoothGattService> getSupportedGattServices() {
-        if (mBluetoothGatt == null) return null;
+        if (mBluetoothGatt == null)
+            return null;
 
         return mBluetoothGatt.getServices();
     }
-    
+
     private void toggleRssiListener() {
-        boolean fence = mPrefs.getBoolean(OClickControlActivity.OCLICK_PROXIMITY_ALERT_KEY, true);
+        boolean fence = mPrefs.getBoolean(
+                OClickControlActivity.OCLICK_PROXIMITY_ALERT_KEY, true);
 
         mRssiPoll.removeCallbacksAndMessages(null);
         if (fence) {
@@ -514,34 +547,36 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
             }, 100);
         }
     }
-    
-    private void startAlert(int alertType){
+
+    private void startAlert(int alertType) {
         byte[] value = new byte[1];
-        BluetoothGattCharacteristic charS = mBluetoothGatt.getService(OClickGattAttributes.IMMEDIATE_ALERT_UUID)
-                .getCharacteristic(OClickGattAttributes.IMMEDIATE_ALERT_CHAR_UUID);
+        BluetoothGattCharacteristic charS = mBluetoothGatt.getService(
+                OClickGattAttributes.IMMEDIATE_ALERT_UUID).getCharacteristic(
+                OClickGattAttributes.IMMEDIATE_ALERT_CHAR_UUID);
 
         Log.d(TAG, "Start alert");
         value[0] = Integer.valueOf(alertType).byteValue();
-        if(charS!=null){
+        if (charS != null) {
             charS.setValue(value);
             mBluetoothGatt.writeCharacteristic(charS);
         }
     }
 
-    private void stopAlert(){
+    private void stopAlert() {
         byte[] value = new byte[1];
-        BluetoothGattCharacteristic charS = mBluetoothGatt.getService(OClickGattAttributes.IMMEDIATE_ALERT_UUID)
-                .getCharacteristic(OClickGattAttributes.IMMEDIATE_ALERT_CHAR_UUID);
+        BluetoothGattCharacteristic charS = mBluetoothGatt.getService(
+                OClickGattAttributes.IMMEDIATE_ALERT_UUID).getCharacteristic(
+                OClickGattAttributes.IMMEDIATE_ALERT_CHAR_UUID);
 
         Log.d(TAG, "Stop alert");
         value[0] = 0;
-        if(charS!=null){
+        if (charS != null) {
             charS.setValue(value);
             mBluetoothGatt.writeCharacteristic(charS);
         }
     }
-    
-    private void handleFindMeAlert(){
+
+    private void handleFindMeAlert() {
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
         if (mRingtone.isPlaying()) {
@@ -557,18 +592,22 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         saveRingtoneProperties();
         adjustRingtoneProperties();
         mRingtone.play();
-        Notification.Builder builder = new Notification.Builder(OClickBLEService.this);
+        Notification.Builder builder = new Notification.Builder(
+                OClickBLEService.this);
         builder.setSmallIcon(R.drawable.locator_icon);
-        builder.setContentTitle(getResources().getString(R.string.find_phone_alert_notification_title));
-        builder.setContentText(getResources().getString(R.string.find_phone_alert_notification_text));
+        builder.setContentTitle(getResources().getString(
+                R.string.find_phone_alert_notification_title));
+        builder.setContentText(getResources().getString(
+                R.string.find_phone_alert_notification_text));
         builder.setAutoCancel(true);
         builder.setOngoing(true);
 
-        PendingIntent resultPendingIntent = PendingIntent.getBroadcast(getBaseContext(), 0, new Intent(ACTION_CANCEL_ALERT_PHONE), 0);
+        PendingIntent resultPendingIntent = PendingIntent.getBroadcast(
+                getBaseContext(), 0, new Intent(ACTION_CANCEL_ALERT_PHONE), 0);
         builder.setContentIntent(resultPendingIntent);
         notificationManager.notify(0, builder.build());
     }
-    
+
     private void triggerVirtualKeypress(final int keyCode) {
         InputManager im = InputManager.getInstance();
         long now = SystemClock.uptimeMillis();
@@ -576,9 +615,11 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         final KeyEvent downEvent = new KeyEvent(now, now, KeyEvent.ACTION_DOWN,
                 keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
                 KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
-        final KeyEvent upEvent = KeyEvent.changeAction(downEvent, KeyEvent.ACTION_UP);
+        final KeyEvent upEvent = KeyEvent.changeAction(downEvent,
+                KeyEvent.ACTION_UP);
 
-        im.injectInputEvent(downEvent, InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
+        im.injectInputEvent(downEvent,
+                InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
         im.injectInputEvent(upEvent, InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
     }
 
@@ -589,14 +630,16 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         final KeyEvent downEvent = new KeyEvent(now, now, KeyEvent.ACTION_DOWN,
                 keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
                 KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
-        final KeyEvent upEvent = KeyEvent.changeAction(downEvent, KeyEvent.ACTION_UP);
+        final KeyEvent upEvent = KeyEvent.changeAction(downEvent,
+                KeyEvent.ACTION_UP);
 
-        im.injectInputEvent(downEvent, InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
+        im.injectInputEvent(downEvent,
+                InputManager.INJECT_INPUT_EVENT_MODE_ASYNC);
     }
-        
+
     private IAudioService getAudioService() {
-        IAudioService audioService = IAudioService.Stub.asInterface(
-                ServiceManager.checkService(Context.AUDIO_SERVICE));
+        IAudioService audioService = IAudioService.Stub
+                .asInterface(ServiceManager.checkService(Context.AUDIO_SERVICE));
         if (audioService == null) {
             Log.w(TAG, "Unable to find IAudioService interface.");
         }
@@ -604,7 +647,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     }
 
     boolean isMusicActive() {
-        final AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+        final AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         if (am == null) {
             return false;
         }
@@ -612,16 +655,17 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     }
 
     private void adjustRingtoneProperties() {
-        final AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+        final AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         if (am == null) {
             return;
         }
         am.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
-        am.setStreamVolume(AudioManager.STREAM_RING, am.getStreamMaxVolume(AudioManager.STREAM_RING), 0);
+        am.setStreamVolume(AudioManager.STREAM_RING,
+                am.getStreamMaxVolume(AudioManager.STREAM_RING), 0);
     }
-    
+
     private void restoreRingtoneProperties() {
-        final AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+        final AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         if (am == null) {
             return;
         }
@@ -630,7 +674,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     }
 
     private void saveRingtoneProperties() {
-        final AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+        final AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         if (am == null) {
             return;
         }
@@ -639,12 +683,13 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     }
 
     private void dispatchMediaKeyWithWakeLockToAudioService(int keycode) {
-       if (ActivityManagerNative.isSystemReady()) {
+        if (ActivityManagerNative.isSystemReady()) {
             IAudioService audioService = getAudioService();
             if (audioService != null) {
                 try {
                     KeyEvent event = new KeyEvent(SystemClock.uptimeMillis(),
-                            SystemClock.uptimeMillis(), KeyEvent.ACTION_DOWN, keycode, 0);
+                            SystemClock.uptimeMillis(), KeyEvent.ACTION_DOWN,
+                            keycode, 0);
                     audioService.dispatchMediaKeyEventUnderWakelock(event);
                     event = KeyEvent.changeAction(event, KeyEvent.ACTION_UP);
                     audioService.dispatchMediaKeyEventUnderWakelock(event);
@@ -654,7 +699,7 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
             }
         }
     }
-    
+
     private boolean isCameraActive() {
         final ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
         final List<ActivityManager.RecentTaskInfo> recentTasks = am
@@ -662,18 +707,17 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
         final ActivityManager.RecentTaskInfo recentInfo = recentTasks.get(0);
 
         Intent intent = new Intent(recentInfo.baseIntent);
-        if(intent.toString().contains("focal") ||
-                intent.toString().contains("camera")){
+        if (intent.toString().contains("focal")
+                || intent.toString().contains("camera")) {
             return true;
         }
 
         if (recentInfo.origActivity != null) {
             intent.setComponent(recentInfo.origActivity);
         }
-        
+
         String pkgName = intent.getComponent().getPackageName().toLowerCase();
-        if(pkgName.contains("focal") ||
-                pkgName.contains("camera")){
+        if (pkgName.contains("focal") || pkgName.contains("camera")) {
             return true;
         }
         return false;
@@ -682,17 +726,20 @@ public class OClickBLEService extends Service implements OnSharedPreferenceChang
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,
             String key) {
-    	Log.d(TAG, "onSharedPreferenceChanged");
+        Log.d(TAG, "onSharedPreferenceChanged");
         if (key.equals(OClickControlActivity.OCLICK_PROXIMITY_ALERT_KEY)) {
-            if(mConnected){
+            if (mConnected) {
                 toggleRssiListener();
             }
         }
-        if(key.equals(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_TONE_KEY)){
-            String currentRingtoneString= sharedPreferences.getString(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_TONE_KEY, null);
-            if(currentRingtoneString != null){
-            	Uri currentRingtone = Uri.parse(currentRingtoneString);
-                mRingtone = RingtoneManager.getRingtone(getApplicationContext(), currentRingtone);
+        if (key.equals(OClickControlActivity.OCLICK_FIND_PHONE_ALERT_TONE_KEY)) {
+            String currentRingtoneString = sharedPreferences.getString(
+                    OClickControlActivity.OCLICK_FIND_PHONE_ALERT_TONE_KEY,
+                    null);
+            if (currentRingtoneString != null) {
+                Uri currentRingtone = Uri.parse(currentRingtoneString);
+                mRingtone = RingtoneManager.getRingtone(
+                        getApplicationContext(), currentRingtone);
             }
         }
     }

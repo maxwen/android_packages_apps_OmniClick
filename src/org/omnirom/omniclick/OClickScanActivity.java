@@ -60,26 +60,29 @@ public class OClickScanActivity extends ListActivity {
         super.onCreate(savedInstanceState);
         getActionBar().setTitle(R.string.title_devices);
         mHandler = new Handler();
-        
-        // Initializes a Bluetooth adapter.  For API level 18 and above, get a reference to
+
+        // Initializes a Bluetooth adapter. For API level 18 and above, get a
+        // reference to
         // BluetoothAdapter through BluetoothManager.
-        final BluetoothManager bluetoothManager =
-                (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        final BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
-        
+
         LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        mProgress = inflater.inflate(R.layout.actionbar_indeterminate_progress, null);
-        mProgressBar = (ProgressBar)mProgress.findViewById(R.id.refresh_progress_bar);
-        mProgressBar.setOnTouchListener(new OnTouchListener(){
-			@Override
-			public boolean onTouch(View v, MotionEvent event) {
-				if(event.getAction()==MotionEvent.ACTION_DOWN){
-					if(mScanning){
-						scanLeDevice(false);
-					}
-            	}
-            	return true;
-			}});
+        mProgress = inflater.inflate(R.layout.actionbar_indeterminate_progress,
+                null);
+        mProgressBar = (ProgressBar) mProgress
+                .findViewById(R.id.refresh_progress_bar);
+        mProgressBar.setOnTouchListener(new OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    if (mScanning) {
+                        scanLeDevice(false);
+                    }
+                }
+                return true;
+            }
+        });
     }
 
     @Override
@@ -96,14 +99,14 @@ public class OClickScanActivity extends ListActivity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
-            case R.id.menu_scan:
-            	if(!mScanning){
-            		mLeDeviceListAdapter.clear();
-            		scanLeDevice(true);
-            	} else {
-                    scanLeDevice(false);
-            	}
-                break;
+        case R.id.menu_scan:
+            if (!mScanning) {
+                mLeDeviceListAdapter.clear();
+                scanLeDevice(true);
+            } else {
+                scanLeDevice(false);
+            }
+            break;
         }
         return true;
     }
@@ -129,28 +132,37 @@ public class OClickScanActivity extends ListActivity {
     protected void onListItemClick(ListView l, View v, int position, long id) {
         final BluetoothDevice device = mLeDeviceListAdapter.getDevice(position);
         if (mScanning) {
-        	scanLeDevice(false);
+            scanLeDevice(false);
         }
-        
-        final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        prefs.edit().putString(OClickControlActivity.OCLICK_CONNECT_DEVICE, device.getAddress()).commit();
-        prefs.edit().putString(OClickControlActivity.OCLICK_CONNECT_NAME, device.getName()).commit();
 
-        if(!OClickBLEService.mIsRunning){
-            Intent connectingIntent = new Intent(OClickControlActivity.CONNECTING_ACTION);
+        final SharedPreferences prefs = PreferenceManager
+                .getDefaultSharedPreferences(this);
+        prefs.edit()
+                .putString(OClickControlActivity.OCLICK_CONNECT_DEVICE,
+                        device.getAddress()).commit();
+        prefs.edit()
+                .putString(OClickControlActivity.OCLICK_CONNECT_NAME,
+                        device.getName()).commit();
+
+        if (!OClickBLEService.mIsRunning) {
+            Intent connectingIntent = new Intent(
+                    OClickControlActivity.CONNECTING_ACTION);
             this.sendBroadcast(connectingIntent);
 
             Intent startIntent = new Intent(this, OClickBLEService.class);
-    		this.startService(startIntent);
-    	} else if(!OClickBLEService.mConnected){
-            Intent connectingIntent = new Intent(OClickControlActivity.CONNECTING_ACTION);
+            this.startService(startIntent);
+        } else if (!OClickBLEService.mConnected) {
+            Intent connectingIntent = new Intent(
+                    OClickControlActivity.CONNECTING_ACTION);
             this.sendBroadcast(connectingIntent);
 
-    	    Intent connectIntent = new Intent(OClickBLEService.ACTION_CONNECT);
-    		connectIntent.putExtra(OClickControlActivity.EXTRAS_DEVICE_ADDRESS, device.getAddress());
-    		connectIntent.putExtra(OClickControlActivity.EXTRAS_DEVICE_NAME, device.getName());
-    		this.sendBroadcast(connectIntent);
-    	}
+            Intent connectIntent = new Intent(OClickBLEService.ACTION_CONNECT);
+            connectIntent.putExtra(OClickControlActivity.EXTRAS_DEVICE_ADDRESS,
+                    device.getAddress());
+            connectIntent.putExtra(OClickControlActivity.EXTRAS_DEVICE_NAME,
+                    device.getName());
+            this.sendBroadcast(connectIntent);
+        }
         finish();
     }
 
@@ -187,7 +199,7 @@ public class OClickScanActivity extends ListActivity {
         }
 
         public void addDevice(BluetoothDevice device) {
-            if(!mLeDevices.contains(device)) {
+            if (!mLeDevices.contains(device)) {
                 mLeDevices.add(device);
             }
         }
@@ -222,8 +234,10 @@ public class OClickScanActivity extends ListActivity {
             if (view == null) {
                 view = mInflator.inflate(R.layout.device_item, null);
                 viewHolder = new ViewHolder();
-                viewHolder.deviceAddress = (TextView) view.findViewById(R.id.device_address);
-                viewHolder.deviceName = (TextView) view.findViewById(R.id.device_name);
+                viewHolder.deviceAddress = (TextView) view
+                        .findViewById(R.id.device_address);
+                viewHolder.deviceName = (TextView) view
+                        .findViewById(R.id.device_name);
                 view.setTag(viewHolder);
             } else {
                 viewHolder = (ViewHolder) view.getTag();
@@ -231,10 +245,11 @@ public class OClickScanActivity extends ListActivity {
 
             BluetoothDevice device = mLeDevices.get(i);
             String deviceName = device.getName();
-            if (deviceName != null && deviceName.length() > 0){
-            	if(deviceName.toLowerCase().contains("oppo")){
-            		deviceName = deviceName + " : " + getResources().getString(R.string.oppo_oclick);
-            	}
+            if (deviceName != null && deviceName.length() > 0) {
+                if (deviceName.toLowerCase().contains("oppo")) {
+                    deviceName = deviceName + " : "
+                            + getResources().getString(R.string.oppo_oclick);
+                }
                 viewHolder.deviceName.setText(deviceName);
             } else {
                 viewHolder.deviceName.setText(R.string.unknown_device);
@@ -246,16 +261,16 @@ public class OClickScanActivity extends ListActivity {
     }
 
     // Device scan callback.
-    private BluetoothAdapter.LeScanCallback mLeScanCallback =
-            new BluetoothAdapter.LeScanCallback() {
+    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
 
         @Override
-        public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
+        public void onLeScan(final BluetoothDevice device, int rssi,
+                byte[] scanRecord) {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                   mLeDeviceListAdapter.addDevice(device);
-                   mLeDeviceListAdapter.notifyDataSetChanged();
+                    mLeDeviceListAdapter.addDevice(device);
+                    mLeDeviceListAdapter.notifyDataSetChanged();
                 }
             });
         }
